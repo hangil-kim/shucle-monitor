@@ -409,6 +409,7 @@ def export_html(data, filepath):
   .cat-sep td {{ border-top: 2px solid #999; }}
   ul.insights {{ padding-left: 20px; }}
   ul.insights li {{ margin-bottom: 6px; line-height: 1.6; font-size: 13px; }}
+  .section-divider {{ border: none; border-top: 1px solid #DDD; margin: 28px 0 8px 0; }}
   .footer {{ margin-top: 24px; font-size: 12px; color: #999; border-top: 1px solid #DDD; padding-top: 8px; }}
 </style>
 </head>
@@ -445,6 +446,7 @@ def export_html(data, filepath):
     html += "</table>\n"
 
     # 2차 세부지표_변동
+    html += '\n<hr class="section-divider">\n'
     if data["drilldown_sections"]:
         html += "\n<h2>2. 2차 세부지표_변동 (1차 핵심지표 ±10% 이상 변동)</h2>\n"
         for sec in data["drilldown_sections"]:
@@ -464,6 +466,7 @@ def export_html(data, filepath):
             html += "</table>\n"
 
     # 2차 세부지표_안정
+    html += '\n<hr class="section-divider">\n'
     if data["stable_sections"]:
         html += "\n<h2>3. 2차 세부지표_안정 (10% 이내 변동)</h2>\n"
         for sec in data["stable_sections"]:
@@ -483,6 +486,7 @@ def export_html(data, filepath):
             html += "</table>\n"
 
     # 핵심 해석
+    html += '\n<hr class="section-divider">\n'
     html += "\n<h2>4. 핵심 해석</h2>\n<ul class=\"insights\">\n"
     for ins in data["insights"]:
         html += f"  <li>{ins}</li>\n"
