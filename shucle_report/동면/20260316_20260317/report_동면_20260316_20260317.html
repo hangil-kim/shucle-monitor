@@ -9,11 +9,18 @@
   .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
   h2 { font-size: 16px; margin-top: 32px; color: #222; }
   h3 { font-size: 14px; margin-top: 20px; color: #444; }
-  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px 0; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px 0; font-size: 13px; table-layout: fixed; }
   th { background: #F5F5F5; border: 1px solid #CCC; padding: 6px 10px; text-align: center; font-weight: bold; }
-  td { border: 1px solid #DDD; padding: 5px 10px; }
+  td { border: 1px solid #DDD; padding: 5px 10px; vertical-align: middle; }
   td.num { text-align: right; }
   td.center { text-align: center; }
+  .dd-table th:nth-child(1) { width: 18%; }
+  .dd-table th:nth-child(2) { width: 20%; }
+  .dd-table th:nth-child(3) { width: 10%; }
+  .dd-table th:nth-child(4) { width: 10%; }
+  .dd-table th:nth-child(5) { width: 10%; }
+  .dd-table th:nth-child(6) { width: 10%; }
+  .dd-table th:nth-child(7) { width: 22%; }
   .negative { color: #D32F2F; font-weight: bold; }
   .positive { color: #1565C0; font-weight: bold; }
   .cat-sep td { border-top: 2px solid #999; }
@@ -29,7 +36,7 @@
 <div class="meta">
   지역: <b>동면</b> | 분석기간: 2026.03.16 ~ 03.17
   | 비교기간: 2026.03.12 ~ 03.13<br>
-  생성: 2026-03-18 16:56 | 차트: 98개 로드<br>
+  생성: 2026-03-18 17:15 | 차트: 98개 로드<br>
   지표 분석 체계: 수요/품질/공급/성장별 1차 핵심지표와 이를 세분화한 2차 세부지표
 </div>
 
@@ -40,7 +47,7 @@
   <td class="center">수요</td>
   <td>실시간 호출 건수(일평균)</td>
   <td class="num">10.0건</td>
-  <td class="num">4.00건</td>
+  <td class="num">4.0건</td>
   <td class="num">-6.0건</td>
   <td class="num">-60.0%</td>
   <td class="center negative">⚠ 감소</td>
@@ -48,8 +55,8 @@
 <tr>
   <td class="center">수요</td>
   <td>이동완료 호출 건수(일평균)</td>
-  <td class="num">7.50건</td>
-  <td class="num">4.00건</td>
+  <td class="num">7.5건</td>
+  <td class="num">4.0건</td>
   <td class="num">-3.5건</td>
   <td class="num">-46.7%</td>
   <td class="center negative">⚠ 감소</td>
@@ -57,8 +64,8 @@
 <tr>
   <td class="center">수요</td>
   <td>총 탑승객 수(일평균)</td>
-  <td class="num">9.50명</td>
-  <td class="num">7.00명</td>
+  <td class="num">9.5명</td>
+  <td class="num">7.0명</td>
   <td class="num">-2.5명</td>
   <td class="num">-26.3%</td>
   <td class="center negative">⚠ 감소</td>
@@ -66,8 +73,8 @@
 <tr>
   <td class="center">수요</td>
   <td>대당 탑승객 수</td>
-  <td class="num">9.50명</td>
-  <td class="num">7.00명</td>
+  <td class="num">9.5명</td>
+  <td class="num">7.0명</td>
   <td class="num">-2.5명</td>
   <td class="num">-26.3%</td>
   <td class="center negative">⚠ 감소</td>
@@ -75,8 +82,8 @@
 <tr class="cat-sep">
   <td class="center">품질</td>
   <td>평균 대기시간</td>
-  <td class="num">2.76분</td>
-  <td class="num">2.97분</td>
+  <td class="num">2.8분</td>
+  <td class="num">3.0분</td>
   <td class="num">+0.2분</td>
   <td class="num">+7.9%</td>
   <td class="center ">유지</td>
@@ -84,8 +91,8 @@
 <tr>
   <td class="center">품질</td>
   <td>평균 우회비율</td>
-  <td class="num">0.94배</td>
-  <td class="num">1.07배</td>
+  <td class="num">0.9배</td>
+  <td class="num">1.1배</td>
   <td class="num">+0.1배</td>
   <td class="num">+13.7%</td>
   <td class="center negative">⚠ 악화</td>
@@ -102,8 +109,8 @@
 <tr class="cat-sep">
   <td class="center">공급</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00대</td>
-  <td class="num">1.00대</td>
+  <td class="num">1.0대</td>
+  <td class="num">1.0대</td>
   <td class="num">+0.0대</td>
   <td class="num">+0.0%</td>
   <td class="center ">유지</td>
@@ -111,8 +118,8 @@
 <tr>
   <td class="center">공급</td>
   <td>평균 대당 운행시간</td>
-  <td class="num">7.42시간</td>
-  <td class="num">7.38시간</td>
+  <td class="num">7.4시간</td>
+  <td class="num">7.4시간</td>
   <td class="num">-0.0시간</td>
   <td class="num">-0.4%</td>
   <td class="center ">유지</td>
@@ -147,8 +154,8 @@
 <tr class="cat-sep">
   <td class="center">성장</td>
   <td>DAU (일간 활성 회원)</td>
-  <td class="num">4.00명</td>
-  <td class="num">3.50명</td>
+  <td class="num">4.0명</td>
+  <td class="num">3.5명</td>
   <td class="num">-0.5명</td>
   <td class="num">-12.5%</td>
   <td class="center negative">⚠ 감소</td>
@@ -156,8 +163,8 @@
 <tr>
   <td class="center">성장</td>
   <td>신규 지역 회원(일평균)</td>
-  <td class="num">3.00명</td>
-  <td class="num">3.00명</td>
+  <td class="num">3.0명</td>
+  <td class="num">3.0명</td>
   <td class="num">+0.0명</td>
   <td class="num">+0.0%</td>
   <td class="center ">유지</td>
@@ -169,46 +176,42 @@
 <h2>2. 2차 세부지표_변동 (1차 핵심지표 ±10% 이상 변동)</h2>
 
 <h3>▼ 실시간 호출 건수(일평균) (-60.0%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
+  <td rowspan="7">실시간 호출 건수(일평균)</td>
   <td>가호출 수(일평균)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.50</td>
-  <td class="num">-2.00</td>
+  <td class="num">9.5</td>
+  <td class="num">7.5</td>
+  <td class="num">-2.0</td>
   <td class="num">-21.1%</td>
   <td>가호출 대비 실호출 전환 저조</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>배차실패 건수(일평균)</td>
-  <td class="num">2.50</td>
-  <td class="num">0.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">2.5</td>
+  <td class="num">0.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-100.0%</td>
   <td>배차 매칭 실패로 호출 유실</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>호출취소 건수(일평균)</td>
-  <td class="num">0.00</td>
-  <td class="num">0.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">0.0</td>
+  <td class="num">0.0</td>
+  <td class="num">+0.0</td>
   <td class="num">-</td>
   <td>이용자 자발적 취소 증가</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>차량 공급 부족에 따른 수요 억제</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>전화 호출 비율</td>
   <td class="num">25.0%</td>
   <td class="num">50.0%</td>
@@ -217,7 +220,6 @@
   <td>전화 호출 채널 비중 변화</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>앱 호출 비율</td>
   <td class="num">5.0%</td>
   <td class="num">12.5%</td>
@@ -226,7 +228,6 @@
   <td>앱 호출 채널 비중 변화</td>
 </tr>
 <tr>
-  <td>실시간 호출 건수(일평균)</td>
   <td>현장 호출 비율</td>
   <td class="num">0.0%</td>
   <td class="num">0.0%</td>
@@ -237,51 +238,48 @@
 </table>
 
 <h3>▼ 이동완료 호출 건수(일평균) (-46.7%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>이동완료 호출 건수(일평균)</td>
+  <td rowspan="3">이동완료 호출 건수(일평균)</td>
   <td>미탑승 건수(일평균)</td>
-  <td class="num">0.00</td>
-  <td class="num">0.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">0.0</td>
+  <td class="num">0.0</td>
+  <td class="num">+0.0</td>
   <td class="num">-</td>
   <td>배차 후 미탑승(노쇼) 발생</td>
 </tr>
 <tr>
-  <td>이동완료 호출 건수(일평균)</td>
   <td>호출취소 건수(일평균)</td>
-  <td class="num">0.00</td>
-  <td class="num">0.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">0.0</td>
+  <td class="num">0.0</td>
+  <td class="num">+0.0</td>
   <td class="num">-</td>
   <td>이용자 자발적 취소</td>
 </tr>
 <tr>
-  <td>이동완료 호출 건수(일평균)</td>
   <td>배차실패 건수(일평균)</td>
-  <td class="num">2.50</td>
-  <td class="num">0.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">2.5</td>
+  <td class="num">0.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-100.0%</td>
   <td>배차 매칭 실패</td>
 </tr>
 </table>
 
 <h3>▼ 총 탑승객 수(일평균) (-26.3%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>총 탑승객 수(일평균)</td>
+  <td rowspan="4">총 탑승객 수(일평균)</td>
   <td>동승 인원 분포(일평균)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">9.5</td>
+  <td class="num">7.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-26.3%</td>
   <td>동승 비율 변화에 따른 탑승객 증감</td>
 </tr>
 <tr>
-  <td>총 탑승객 수(일평균)</td>
   <td>고령자(60+) 호출 비율</td>
   <td class="num">83.3%</td>
   <td class="num">50.0%</td>
@@ -290,7 +288,6 @@
   <td>고령 이용자 호출 비중 변화</td>
 </tr>
 <tr>
-  <td>총 탑승객 수(일평균)</td>
   <td>성인(20~50대) 호출 비율</td>
   <td class="num">16.7%</td>
   <td class="num">25.0%</td>
@@ -299,7 +296,6 @@
   <td>성인 이용자 호출 비중 변화</td>
 </tr>
 <tr>
-  <td>총 탑승객 수(일평균)</td>
   <td>어린이/청소년 호출 비율</td>
   <td class="num">0.0%</td>
   <td class="num">25.0%</td>
@@ -310,19 +306,18 @@
 </table>
 
 <h3>▼ 대당 탑승객 수 (-26.3%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>대당 탑승객 수</td>
+  <td rowspan="5">대당 탑승객 수</td>
   <td>대당 탑승객 수(평일)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">9.5</td>
+  <td class="num">7.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-26.3%</td>
   <td>평일 차량당 탑승객 변화</td>
 </tr>
 <tr>
-  <td>대당 탑승객 수</td>
   <td>대당 탑승객 수(주말)</td>
   <td class="num">-</td>
   <td class="num">-</td>
@@ -331,71 +326,66 @@
   <td>주말 차량당 탑승객 변화</td>
 </tr>
 <tr>
-  <td>대당 탑승객 수</td>
   <td>동승 인원 분포(일평균)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">9.5</td>
+  <td class="num">7.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-26.3%</td>
   <td>동승 비율 변화에 따른 대당 탑승 변화</td>
 </tr>
 <tr>
-  <td>대당 탑승객 수</td>
   <td>실시간 호출 건수(일평균)</td>
   <td class="num">10.0</td>
-  <td class="num">4.00</td>
-  <td class="num">-6.00</td>
+  <td class="num">4.0</td>
+  <td class="num">-6.0</td>
   <td class="num">-60.0%</td>
   <td>수요 변동에 따른 대당 배분 변화</td>
 </tr>
 <tr>
-  <td>대당 탑승객 수</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>차량 수 변동에 따른 대당 배분 변화</td>
 </tr>
 </table>
 
 <h3>▲ 평균 우회비율 (+13.7%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 우회비율</td>
+  <td rowspan="3">평균 우회비율</td>
   <td>상위 10% 우회비율</td>
-  <td class="num">1.45</td>
-  <td class="num">1.39</td>
-  <td class="num">-0.07</td>
+  <td class="num">1.5</td>
+  <td class="num">1.4</td>
+  <td class="num">-0.1</td>
   <td class="num">-4.5%</td>
   <td>극단적 우회 경로 발생</td>
 </tr>
 <tr>
-  <td>평균 우회비율</td>
   <td>평균 이동시간</td>
   <td class="num">10.3</td>
   <td class="num">10.4</td>
-  <td class="num">+0.17</td>
+  <td class="num">+0.2</td>
   <td class="num">+1.7%</td>
   <td>우회 경로 증가가 이동시간 상승 유발</td>
 </tr>
 <tr>
-  <td>평균 우회비율</td>
   <td>동승 인원 분포(일평균)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">9.5</td>
+  <td class="num">7.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-26.3%</td>
   <td>동승 증가로 경유지 추가</td>
 </tr>
 </table>
 
 <h3>▼ 평균 대당 운행거리 (-28.5%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 대당 운행거리</td>
+  <td rowspan="3">평균 대당 운행거리</td>
   <td>일간 평균 대당 운행거리</td>
   <td class="num">89.5</td>
   <td class="num">64.0</td>
@@ -404,48 +394,44 @@
   <td>일별 운행거리 편차</td>
 </tr>
 <tr>
-  <td>평균 대당 운행거리</td>
   <td>실시간 호출 건수(일평균)</td>
   <td class="num">10.0</td>
-  <td class="num">4.00</td>
-  <td class="num">-6.00</td>
+  <td class="num">4.0</td>
+  <td class="num">-6.0</td>
   <td class="num">-60.0%</td>
   <td>수요 변동에 따른 운행거리 변화</td>
 </tr>
 <tr>
-  <td>평균 대당 운행거리</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>차량 수 변동에 따른 대당 거리 변화</td>
 </tr>
 </table>
 
 <h3>▼ DAU (일간 활성 회원) (-12.5%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>DAU (일간 활성 회원)</td>
+  <td rowspan="5">DAU (일간 활성 회원)</td>
   <td>WAU (주간 활성 회원)</td>
-  <td class="num">7.00</td>
+  <td class="num">7.0</td>
   <td class="num">-</td>
   <td class="num">-</td>
   <td class="num">-</td>
   <td>주간 활성도 추이 연동</td>
 </tr>
 <tr>
-  <td>DAU (일간 활성 회원)</td>
   <td>신규 지역 회원(일평균)</td>
-  <td class="num">3.00</td>
-  <td class="num">3.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">3.0</td>
+  <td class="num">3.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>신규 유입 증감 영향</td>
 </tr>
 <tr>
-  <td>DAU (일간 활성 회원)</td>
   <td>활성 회원 평균연령</td>
   <td class="num">65.0</td>
   <td class="num">75.0</td>
@@ -454,20 +440,18 @@
   <td>이용자 평균 연령 변화</td>
 </tr>
 <tr>
-  <td>DAU (일간 활성 회원)</td>
   <td>가호출 성공률</td>
-  <td class="num">0.39</td>
-  <td class="num">0.88</td>
-  <td class="num">+0.49</td>
+  <td class="num">0.4</td>
+  <td class="num">0.9</td>
+  <td class="num">+0.5</td>
   <td class="num">+127.0%</td>
   <td>서비스 품질 불만에 따른 이탈</td>
 </tr>
 <tr>
-  <td>DAU (일간 활성 회원)</td>
   <td>평균 대기시간</td>
-  <td class="num">2.76</td>
-  <td class="num">2.97</td>
-  <td class="num">+0.22</td>
+  <td class="num">2.8</td>
+  <td class="num">3.0</td>
+  <td class="num">+0.2</td>
   <td class="num">+7.9%</td>
   <td>대기시간 증가에 따른 이탈</td>
 </tr>
@@ -475,22 +459,32 @@
 
 <hr class="section-divider">
 
-<h2>3. 2차 세부지표_안정 (10% 이내 변동)</h2>
+<h2>3. 핵심 해석</h2>
+<ul class="insights">
+  <li>수요 감소: 호출(-60%), 이동완료(-47%), 탑승객(-26%) 모두 하락 — 분석기간 운행 2일(03/16,03/17), 비교기간 2일</li>
+  <li>이동완료율 75.0% → 100.0% (+25.0%p): 호출 4건 중 4건 완료</li>
+  <li>가호출 성공률 상승: 38.5% → 87.5%, 가호출 시도 일평균 7.5건</li>
+  <li>성장 지표 긍정적: DAU -12%, 누적 25명</li>
+  <li>호당 평균 탑승객 1.8명: 동승 이용 활발</li>
+</ul>
+
+<hr class="section-divider">
+
+<h2>4. [부록] 2차 세부지표_안정 (10% 이내 변동)</h2>
 
 <h3>▲ 평균 대기시간 (+7.9%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 대기시간</td>
+  <td rowspan="6">평균 대기시간</td>
   <td>평균 대기시간(평일)</td>
-  <td class="num">2.76</td>
-  <td class="num">2.97</td>
-  <td class="num">+0.22</td>
+  <td class="num">2.8</td>
+  <td class="num">3.0</td>
+  <td class="num">+0.2</td>
   <td class="num">+7.9%</td>
   <td>평일 대기시간 변화</td>
 </tr>
 <tr>
-  <td>평균 대기시간</td>
   <td>평균 대기시간(주말)</td>
   <td class="num">-</td>
   <td class="num">-</td>
@@ -499,16 +493,14 @@
   <td>주말 대기시간 변화</td>
 </tr>
 <tr>
-  <td>평균 대기시간</td>
   <td>상위 10% 대기시간</td>
-  <td class="num">7.70</td>
+  <td class="num">7.7</td>
   <td class="num">10.1</td>
-  <td class="num">+2.40</td>
+  <td class="num">+2.4</td>
   <td class="num">+31.2%</td>
   <td>극단적 장시간 대기 사례 발생</td>
 </tr>
 <tr>
-  <td>평균 대기시간</td>
   <td>장시간 대기(30분+) 비율</td>
   <td class="num">0.0%</td>
   <td class="num">0.0%</td>
@@ -517,126 +509,118 @@
   <td>30분 이상 장시간 대기 비중</td>
 </tr>
 <tr>
-  <td>평균 대기시간</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>차량 공급 부족에 따른 대기 증가</td>
 </tr>
 <tr>
-  <td>평균 대기시간</td>
   <td>실시간 호출 건수(일평균)</td>
   <td class="num">10.0</td>
-  <td class="num">4.00</td>
-  <td class="num">-6.00</td>
+  <td class="num">4.0</td>
+  <td class="num">-6.0</td>
   <td class="num">-60.0%</td>
   <td>수요 대비 공급 불균형</td>
 </tr>
 </table>
 
 <h3>▲ 평균 이동시간 (+1.7%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 이동시간</td>
+  <td rowspan="3">평균 이동시간</td>
   <td>피크 시간대(15~17시) 이동시간</td>
   <td class="num">11.5</td>
-  <td class="num">9.30</td>
-  <td class="num">-2.17</td>
+  <td class="num">9.3</td>
+  <td class="num">-2.2</td>
   <td class="num">-19.0%</td>
   <td>피크 시간대 이동시간 변화</td>
 </tr>
 <tr>
-  <td>평균 이동시간</td>
   <td>비피크 시간대(8~10시) 이동시간</td>
-  <td class="num">9.80</td>
+  <td class="num">9.8</td>
   <td class="num">19.0</td>
-  <td class="num">+9.20</td>
+  <td class="num">+9.2</td>
   <td class="num">+93.9%</td>
   <td>비피크 시간대 이동시간 변화</td>
 </tr>
 <tr>
-  <td>평균 이동시간</td>
   <td>평균 우회비율</td>
-  <td class="num">0.94</td>
-  <td class="num">1.07</td>
-  <td class="num">+0.13</td>
+  <td class="num">0.9</td>
+  <td class="num">1.1</td>
+  <td class="num">+0.1</td>
   <td class="num">+13.7%</td>
   <td>경로 우회에 따른 이동시간 증가</td>
 </tr>
 </table>
 
 <h3>─ 운행차량 대수 (+0.0%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>운행차량 대수</td>
+  <td rowspan="3">운행차량 대수</td>
   <td>일별 운행 차량 수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>특정일 차량 미운행</td>
 </tr>
 <tr>
-  <td>운행차량 대수</td>
   <td>근무 이행률</td>
-  <td class="num">1.04</td>
-  <td class="num">1.03</td>
-  <td class="num">-0.01</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">-0.0</td>
   <td class="num">-0.5%</td>
   <td>기사 근무 미이행</td>
 </tr>
 <tr>
-  <td>운행차량 대수</td>
   <td>배차실패 건수(일평균)</td>
-  <td class="num">2.50</td>
-  <td class="num">0.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">2.5</td>
+  <td class="num">0.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-100.0%</td>
   <td>차량 감소에 따른 배차 실패 연쇄</td>
 </tr>
 </table>
 
 <h3>▼ 평균 대당 운행시간 (-0.4%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 대당 운행시간</td>
+  <td rowspan="3">평균 대당 운행시간</td>
   <td>차량별 운행 시간</td>
-  <td class="num">7.40</td>
-  <td class="num">7.40</td>
-  <td class="num">+0.00</td>
+  <td class="num">7.4</td>
+  <td class="num">7.4</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>특정 차량 운행 시간 편차</td>
 </tr>
 <tr>
-  <td>평균 대당 운행시간</td>
   <td>평균 근무시간</td>
-  <td class="num">9.36</td>
-  <td class="num">9.30</td>
-  <td class="num">-0.05</td>
+  <td class="num">9.4</td>
+  <td class="num">9.3</td>
+  <td class="num">-0.1</td>
   <td class="num">-0.5%</td>
   <td>공차 대기 시간 증가</td>
 </tr>
 <tr>
-  <td>평균 대당 운행시간</td>
   <td>차량 대당 탑승객</td>
-  <td class="num">9.50</td>
-  <td class="num">7.00</td>
-  <td class="num">-2.50</td>
+  <td class="num">9.5</td>
+  <td class="num">7.0</td>
+  <td class="num">-2.5</td>
   <td class="num">-26.3%</td>
   <td>수요 감소에 따른 공회전</td>
 </tr>
 </table>
 
 <h3>▲ 가호출 성공률 (+127.0%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>가호출 성공률</td>
+  <td rowspan="6">가호출 성공률</td>
   <td>가호출 성공률(평일)</td>
   <td class="num">38.5%</td>
   <td class="num">87.5%</td>
@@ -645,7 +629,6 @@
   <td>평일 가호출 성공률 변화</td>
 </tr>
 <tr>
-  <td>가호출 성공률</td>
   <td>가호출 성공률(주말)</td>
   <td class="num">-</td>
   <td class="num">-</td>
@@ -654,7 +637,6 @@
   <td>주말 가호출 성공률 변화</td>
 </tr>
 <tr>
-  <td>가호출 성공률</td>
   <td>피크 시간대(15~17시) 가호출 성공률</td>
   <td class="num">51.4%</td>
   <td class="num">77.1%</td>
@@ -663,87 +645,74 @@
   <td>피크 시간대 가호출 성공률 변화</td>
 </tr>
 <tr>
-  <td>가호출 성공률</td>
   <td>가호출 성공/실패 회원(일평균)</td>
-  <td class="num">6.00</td>
-  <td class="num">3.50</td>
-  <td class="num">-2.50</td>
+  <td class="num">6.0</td>
+  <td class="num">3.5</td>
+  <td class="num">-2.5</td>
   <td class="num">-41.7%</td>
   <td>가호출 실패 경험 이용자 증가</td>
 </tr>
 <tr>
-  <td>가호출 성공률</td>
   <td>운행차량 대수</td>
-  <td class="num">1.00</td>
-  <td class="num">1.00</td>
-  <td class="num">+0.00</td>
+  <td class="num">1.0</td>
+  <td class="num">1.0</td>
+  <td class="num">+0.0</td>
   <td class="num">+0.0%</td>
   <td>차량 공급 부족에 따른 매칭 실패</td>
 </tr>
 <tr>
-  <td>가호출 성공률</td>
   <td>가호출 수(일평균)</td>
-  <td class="num">9.50</td>
-  <td class="num">7.50</td>
-  <td class="num">-2.00</td>
+  <td class="num">9.5</td>
+  <td class="num">7.5</td>
+  <td class="num">-2.0</td>
   <td class="num">-21.1%</td>
   <td>수요 급증 대비 공급 부족</td>
 </tr>
 </table>
 
 <h3>▲ 평균 경로이탈비중 (+3.8%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>평균 경로이탈비중</td>
+  <td rowspan="2">평균 경로이탈비중</td>
   <td>평균 우회비율</td>
-  <td class="num">0.94</td>
-  <td class="num">1.07</td>
-  <td class="num">+0.13</td>
+  <td class="num">0.9</td>
+  <td class="num">1.1</td>
+  <td class="num">+0.1</td>
   <td class="num">+13.7%</td>
   <td>경로 이탈이 우회비율 증가 유발</td>
 </tr>
 <tr>
-  <td>평균 경로이탈비중</td>
   <td>평균 이동시간</td>
   <td class="num">10.3</td>
   <td class="num">10.4</td>
-  <td class="num">+0.17</td>
+  <td class="num">+0.2</td>
   <td class="num">+1.7%</td>
   <td>경로 이탈이 이동시간 증가 유발</td>
 </tr>
 </table>
 
 <h3>─ 신규 지역 회원(일평균) (+0.0%)</h3>
-<table>
+<table class="dd-table">
 <tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>
 <tr>
-  <td>신규 지역 회원(일평균)</td>
+  <td rowspan="2">신규 지역 회원(일평균)</td>
   <td>누적 지역 회원(일평균)</td>
   <td class="num">20.0</td>
   <td class="num">25.0</td>
-  <td class="num">+5.00</td>
+  <td class="num">+5.0</td>
   <td class="num">+25.0%</td>
   <td>전체 회원 기반 성장세</td>
 </tr>
 <tr>
-  <td>신규 지역 회원(일평균)</td>
   <td>가호출 순 회원(일평균)</td>
-  <td class="num">4.00</td>
-  <td class="num">3.50</td>
-  <td class="num">-0.50</td>
+  <td class="num">4.0</td>
+  <td class="num">3.5</td>
+  <td class="num">-0.5</td>
   <td class="num">-12.5%</td>
   <td>가입 후 미이용(잠재 이탈) 회원</td>
 </tr>
 </table>
-
-<hr class="section-divider">
-
-<h2>4. 핵심 해석</h2>
-<ul class="insights">
-  <li>가호출 성공률 상승: 38.5% → 87.5%, 가호출 시도 일평균 7.50건</li>
-  <li>성장 지표 긍정적: DAU -12%, 누적 25명</li>
-</ul>
 
 <div class="footer">
   ※ 변동 감지 기준: 비교기간 대비 ±10% | 분석 흐름: 수요→품질→공급→성장
