@@ -8,7 +8,6 @@ shucle_browser_profile/
 
 # Collected data (large, regeneratable)
 shucle_data/
-shucle_report/
 shucle_screenshots/
 
 # PDF output (regeneratable)
