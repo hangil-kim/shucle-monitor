@@ -253,6 +253,7 @@ async def set_date_segment(page, segment, target_value, dtype=""):
     React Aria spinbutton: 포커스 후 ArrowUp/Down 또는 숫자 키 입력.
     - year (차이 ≤10): ArrowUp/Down, (차이 >10): 숫자 키 입력
     - month/day: ArrowUp/Down
+    - year 실패 시: triple-click + 직접 입력, fill(), JS 강제 설정 순차 시도
     """
     current = await segment.get_attribute("aria-valuenow")
     label = await segment.get_attribute("aria-label") or ""
@@ -287,6 +288,64 @@ async def set_date_segment(page, segment, target_value, dtype=""):
 
     await page.wait_for_timeout(200)
     after = await segment.get_attribute("aria-valuenow")
+
+    # ── year 설정 실패 시 대안 방법 순차 시도 ──
+    if dtype == "year" and str(after) != str(target_value):
+        print(f" → FAIL(got {after}), 대안 시도...", end="")
+
+        # 대안 1: triple-click + 숫자 직접 타이핑
+        await segment.click(click_count=3)
+        await page.wait_for_timeout(200)
+        for digit in str(target_value):
+            await page.keyboard.press(f"Digit{digit}")
+            await page.wait_for_timeout(100)
+        await page.keyboard.press("Tab")
+        await page.wait_for_timeout(300)
+        after = await segment.get_attribute("aria-valuenow")
+
+        if str(after) != str(target_value):
+            # 대안 2: Playwright fill() (contenteditable 요소)
+            print(f" try2...", end="")
+            try:
+                await segment.fill(str(target_value))
+                await page.wait_for_timeout(300)
+                after = await segment.get_attribute("aria-valuenow")
+            except Exception:
+                pass
+
+        if str(after) != str(target_value):
+            # 대안 3: JS로 React Aria 내부 이벤트 시뮬레이션
+            print(f" try3...", end="")
+            try:
+                await segment.evaluate("""(el, val) => {
+                    el.focus();
+                    // aria 속성 직접 설정
+                    el.setAttribute('aria-valuenow', val);
+                    el.textContent = val;
+                    // React synthetic events 트리거
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                }""", str(target_value))
+                await page.wait_for_timeout(300)
+                after = await segment.get_attribute("aria-valuenow")
+            except Exception:
+                pass
+
+        if str(after) != str(target_value):
+            # 대안 4: Backspace로 지우고 다시 입력
+            print(f" try4...", end="")
+            await segment.click()
+            await page.wait_for_timeout(100)
+            await page.keyboard.press("Control+a")
+            await page.wait_for_timeout(100)
+            await page.keyboard.press("Backspace")
+            await page.wait_for_timeout(100)
+            await page.keyboard.type(str(target_value))
+            await page.keyboard.press("Tab")
+            await page.wait_for_timeout(300)
+            after = await segment.get_attribute("aria-valuenow")
+
     ok = "OK" if str(after) == str(target_value) else f"FAIL(got {after})"
     print(f" → {ok}")
 
@@ -333,9 +392,44 @@ async def select_date_range(page, period="1주"):
             return False
 
         # Step 0: 프리셋으로 시작 연도 맞추기 (시작일 연도 직접 변경 불가 문제 우회)
-        # "12주" → 시작 연도가 전년도, "1주" → 시작 연도가 올해
+        # 시작일 year 세그먼트는 ArrowDown/digit 입력에 반응하지 않음
+        # → 프리셋 버튼이 계산하는 "오늘" 날짜를 속여서 시작 연도를 맞춤
+        #
+        # 예: 시작=2025-10-01 필요 → Date.now()를 2026-01-01로 오버라이드
+        #     → "12주" 클릭 시 12주 전 = 2025-10-09 → 시작 연도 2025 확보!
         today_year = datetime.now().year
-        preset = "12주" if s_parts[0] < today_year else "1주"
+        need_past_year = s_parts[0] < today_year
+
+        if need_past_year:
+            # 시작일이 과거 연도 → Date.now() 오버라이드로 프리셋 속이기
+            # "12주" = 84일 전. 시작일이 target_start가 되려면
+            # fake_today = target_start + 84일 (+ 여유 7일)
+            from datetime import timedelta
+            target_start = datetime(s_parts[0], s_parts[1], s_parts[2])
+            fake_today = target_start + timedelta(days=91)  # 13주
+            fake_ts = int(fake_today.timestamp() * 1000)
+            print(f"   Date.now() 오버라이드: {fake_today.strftime('%Y-%m-%d')} (시작 연도 {s_parts[0]}년 확보)")
+
+            # 페이지의 Date.now()와 new Date()를 오버라이드
+            await page.evaluate(f"""() => {{
+                const fakeNow = {fake_ts};
+                const OrigDate = Date;
+                const FakeDate = function(...args) {{
+                    if (args.length === 0) return new OrigDate(fakeNow);
+                    return new OrigDate(...args);
+                }};
+                FakeDate.now = () => fakeNow;
+                FakeDate.parse = OrigDate.parse;
+                FakeDate.UTC = OrigDate.UTC;
+                FakeDate.prototype = OrigDate.prototype;
+                window.Date = FakeDate;
+                window.__originalDate = OrigDate;
+            }}""")
+
+            preset = "12주"
+        else:
+            preset = "1주"
+
         print(f"   프리셋 리셋 ({preset}) → 시작 연도 {s_parts[0]}년 확보")
         shortcuts = page.locator('div[class*="date-range-picker__Shortcut"]')
         try:
@@ -349,6 +443,18 @@ async def select_date_range(page, period="1주"):
                     break
         except Exception as e:
             print(f"   [WARN] 프리셋 리셋 실패: {e}")
+
+        # Date.now() 복원 (프리셋 처리 완료 후)
+        if need_past_year:
+            await page.evaluate("""() => {
+                if (window.__originalDate) {
+                    window.Date = window.__originalDate;
+                    delete window.__originalDate;
+                }
+            }""")
+            print(f"   Date.now() 복원 완료")
+
+        await page.wait_for_timeout(1000)
 
         # 세그먼트 찾기: role="spinbutton" + data-type + aria-label 시작일/종료일
         segments = page.locator('[data-slot="segment"][role="spinbutton"]')
@@ -376,22 +482,85 @@ async def select_date_range(page, period="1주"):
             print(f"   [FAIL] 종료일 세그먼트 누락: {list(end_segs.keys())}")
             return False
 
-        # 날짜 설정 순서 (시작일 연도 직접 변경 불가 + 종료일 미래 날짜 제약 우회):
-        # 1) 시작일 월→1, 일→1 (시작일 최소화 → 종료일 연도 내릴 공간 확보)
-        # 2) 종료일 연도→월→일 (연도를 과거로 먼저 내리면 미래 제약 없이 월 변경 가능)
-        # 3) 시작일 월→일 (종료일 확정 후 안전하게 복원)
+        # 프리셋 후 현재 시작/종료 연도 확인
+        curr_start_year = int(await start_segs["year"].get_attribute("aria-valuenow") or today_year)
+        curr_end_year = int(await end_segs["year"].get_attribute("aria-valuenow") or today_year)
+        print(f"   프리셋 후 날짜: 시작={curr_start_year}년, 종료={curr_end_year}년")
+        print(f"   목표: 시작={s_parts[0]}.{s_parts[1]}.{s_parts[2]}, 종료={e_parts[0]}.{e_parts[1]}.{e_parts[2]}")
+
+        # 날짜 설정 순서 — "시작일 < 종료일" 제약을 항상 유지
+        # Date.now() 오버라이드로 시작 연도는 이미 프리셋에서 맞춰짐
+        # 종료 연도만 조정하면 됨
+        #
+        # 안전한 순서:
+        # 1) 시작 월/일 최소화 (1/1) → 시작을 기간 내 최소값으로
+        # 2) 종료 월/일 최대화 (12/31) → 공간 확보
+        # 3) 종료 연도 조정 (필요 시)
+        # 4) 시작 월/일 → 목표값
+        # 5) 종료 월/일 → 목표값
+
         print(f"   시작일 임시 최소화 (1월 1일)")
         await set_date_segment(page, start_segs["month"], 1, "month")
         await set_date_segment(page, start_segs["day"], 1, "day")
 
+        # 종료 연도 조정 (프리셋 결과와 목표가 다를 때)
+        if curr_end_year != e_parts[0]:
+            print(f"   종료 연도 조정: {curr_end_year} → {e_parts[0]}")
+            await set_date_segment(page, end_segs["year"], e_parts[0], "year")
+
+        # 종료 연도 조정
+        if curr_end_year != e_parts[0]:
+            print(f"   종료 연도 조정: {curr_end_year} → {e_parts[0]}")
+            await set_date_segment(page, end_segs["year"], e_parts[0], "year")
+
         print(f"   종료일 설정: {end_str}")
-        await set_date_segment(page, end_segs["year"], e_parts[0], "year")
         await set_date_segment(page, end_segs["month"], e_parts[1], "month")
         await set_date_segment(page, end_segs["day"], e_parts[2], "day")
 
         print(f"   시작일 설정: {start_str}")
         await set_date_segment(page, start_segs["month"], s_parts[1], "month")
+        await page.wait_for_timeout(500)  # 월 변경 안정화 대기
         await set_date_segment(page, start_segs["day"], s_parts[2], "day")
+
+        # ── 최종 검증 + 보정: UI 표시 텍스트 기반 ──
+        for retry in range(3):
+            await page.wait_for_timeout(500)
+            try:
+                picker = page.locator('div[class*="date-range-picker__Root"]').first
+                raw = await picker.inner_text(timeout=2000)
+                txt = raw.replace("\n", "").replace(" ", "")
+                import re as _re
+                dm = _re.search(r'(\d{4})\.(\d{1,2})\.(\d{1,2})\.?-(\d{4})\.(\d{1,2})\.(\d{1,2})', txt)
+                if dm:
+                    dy1, dm1, dd1, dy2, dm2, dd2 = [int(x) for x in dm.groups()]
+                    print(f"   [검증] 표시: {dy1}.{dm1}.{dd1} ~ {dy2}.{dm2}.{dd2} / 목표: {s_parts[0]}.{s_parts[1]}.{s_parts[2]} ~ {e_parts[0]}.{e_parts[1]}.{e_parts[2]}")
+
+                    all_ok = (dy1 == s_parts[0] and dm1 == s_parts[1] and dd1 == s_parts[2]
+                              and dy2 == e_parts[0] and dm2 == e_parts[1] and dd2 == e_parts[2])
+                    if all_ok:
+                        break
+
+                    # 표시된 일자가 목표보다 크면 ArrowDown, 작으면 ArrowUp
+                    if dd1 != s_parts[2]:
+                        diff = s_parts[2] - dd1
+                        print(f"   [보정 {retry+1}] 시작일 {dd1} → {s_parts[2]} (diff={diff})")
+                        await start_segs["day"].click()
+                        await page.wait_for_timeout(200)
+                        key = "ArrowUp" if diff > 0 else "ArrowDown"
+                        for _ in range(abs(diff)):
+                            await page.keyboard.press(key)
+                            await page.wait_for_timeout(100)
+                    if dd2 != e_parts[2]:
+                        diff = e_parts[2] - dd2
+                        print(f"   [보정 {retry+1}] 종료일 {dd2} → {e_parts[2]} (diff={diff})")
+                        await end_segs["day"].click()
+                        await page.wait_for_timeout(200)
+                        key = "ArrowUp" if diff > 0 else "ArrowDown"
+                        for _ in range(abs(diff)):
+                            await page.keyboard.press(key)
+                            await page.wait_for_timeout(100)
+            except Exception as e:
+                print(f"   [검증 오류] {e}")
 
         # 데이터 로딩 대기
         await page.wait_for_timeout(3000)

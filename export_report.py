@@ -23,8 +23,8 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from monitoring_report import (
     load_charts, parse_dir_info, FRAMEWORK,
-    get_kpi_value, get_drilldown_value, compute_change,
-    should_trigger, fmt_val, status_label, _resolve_dynamic_name,
+    get_kpi_value, get_drilldown_value, compute_change, dynamic_point,
+    should_trigger, fmt_val, status_label, _is_negative_change, _resolve_dynamic_name,
 )
 
 
@@ -105,8 +105,8 @@ def build_report_data(data_dir, compare_dir=None):
             if all_dds:
                 stable_list.append(r)
 
-        is_negative = stat in ("악화", "감소")
-        is_positive = stat in ("개선", "증가")
+        is_negative = _is_negative_change(change, kpi["name"]) and stat not in ("유지", "-")
+        is_positive = not is_negative and stat not in ("유지", "-")
 
         primary_rows.append({
             "category": cat["category"],
@@ -116,14 +116,14 @@ def build_report_data(data_dir, compare_dir=None):
             "curr_str": curr_str,
             "diff_str": diff_str,
             "rate_str": rate_str,
-            "status": f"⚠ {stat}" if is_triggered else stat,
+            "status": f"⚠ {stat}" if (change is not None and abs(change) >= 0.20) else stat,
             "is_negative": is_negative,
             "is_positive": is_positive,
             "is_triggered": is_triggered,
         })
 
     # ── 드릴다운 행 생성 헬퍼 ──
-    def _build_dd_rows(dd_list):
+    def _build_dd_rows(dd_list, kpi_change=None, kpi_name=""):
         rows = []
         seen = set()
         for dd in dd_list:
@@ -162,7 +162,7 @@ def build_report_data(data_dir, compare_dir=None):
                 if dd_is_pct:
                     dd_diff_str = f"{dd_diff*100:+.1f}%p"
                 else:
-                    dd_diff_str = f"{dd_diff:+.2f}" if abs(dd_diff) < 10 else f"{dd_diff:+.1f}"
+                    dd_diff_str = f"{dd_diff:+.1f}"
                 dd_change = compute_change(curr_num, prev_num)
                 dd_rate_str = f"{dd_change*100:+.1f}%" if dd_change is not None else "-"
             else:
@@ -176,7 +176,7 @@ def build_report_data(data_dir, compare_dir=None):
                 "curr_str": curr_dd_str,
                 "diff_str": dd_diff_str,
                 "rate_str": dd_rate_str,
-                "point": dd.get("reason", ""),
+                "point": dynamic_point(kpi_name, kpi_change, dd_display_name, dd_change if (curr_num is not None and prev_num is not None) else None, curr_num, prev_num, dd_is_pct),
             })
         return rows
 
@@ -193,7 +193,7 @@ def build_report_data(data_dir, compare_dir=None):
         if not active_dds:
             continue
 
-        dd_rows = _build_dd_rows(active_dds)
+        dd_rows = _build_dd_rows(active_dds, kpi_change=change, kpi_name=kpi["name"])
         direction = "▲" if change > 0 else "▼"
         drilldown_sections.append({
             "kpi_name": kpi["name"],
@@ -214,7 +214,7 @@ def build_report_data(data_dir, compare_dir=None):
         if not all_dds:
             continue
 
-        dd_rows = _build_dd_rows(all_dds)
+        dd_rows = _build_dd_rows(all_dds, kpi_change=change, kpi_name=kpi["name"])
         direction = "▲" if change > 0 else ("▼" if change < 0 else "─")
         stable_sections.append({
             "kpi_name": kpi["name"],
@@ -245,15 +245,15 @@ def _build_insights(all_kpi_results, charts, has_compare):
     """핵심 해석 생성 (generate_report의 insights 로직 재사용)"""
     kpi_map = {r["kpi"]["name"]: r for r in all_kpi_results}
 
-    calls_r = kpi_map.get("실시간 호출 건수", {})
-    completed_r = kpi_map.get("이동완료 호출 건수", {})
-    passengers_r = kpi_map.get("총 탑승객 수", {})
+    calls_r = kpi_map.get("실시간 호출 건수(일평균)", {})
+    completed_r = kpi_map.get("이동완료 호출 건수(일평균)", {})
+    passengers_r = kpi_map.get("총 탑승객 수(일평균)", {})
     wait_r = kpi_map.get("평균 대기시간", {})
     travel_r = kpi_map.get("평균 이동시간", {})
     detour_r = kpi_map.get("평균 우회비율", {})
     success_r = kpi_map.get("가호출 성공률", {})
     dau_r = kpi_map.get("DAU (일간 활성 회원)", {})
-    newmem_r = kpi_map.get("신규 지역 회원", {})
+    newmem_r = kpi_map.get("신규 지역 회원(일평균)", {})
 
     insights = []
 
@@ -367,10 +367,46 @@ def _build_insights(all_kpi_results, charts, has_compare):
         insights.append(f"이동시간 {direction}: {fmt_val(prev_travel, '분') if prev_travel else '?'} → {fmt_val(travel_v, '분')} ({travel_ch*100:+.0f}%){detour_info}")
 
     # 공급 효율
+    vehicles_r = kpi_map.get("운행차량 대수", {})
+    vehicles_v = vehicles_r.get("value")
+    dau_v = dau_r.get("value")
     if passengers_v and completed_v and completed_v > 0:
         per_call = passengers_v / completed_v
         if per_call > 1.2 or per_call < 0.8:
-            insights.append(f"호당 평균 탑승객 {per_call:.1f}명: {'동승 이용 활발' if per_call > 1.3 else '1인 이용 위주'}")
+            insights.append(f"호출당 평균 탑승객 {per_call:.1f}명: {'동승 이용 활발' if per_call > 1.3 else '1인 이용 위주'}")
+
+    # 최소 4개 보장: 변동 조건 미충족 시 현황 요약으로 보충
+    if len(insights) < 4:
+        if not any("수요" in ins for ins in insights) and calls_v is not None:
+            calls_ch_str = f"({calls_ch*100:+.1f}%)" if calls_ch is not None else ""
+            insights.append(f"수요 현황: 일평균 호출 {fmt_val(calls_v, '건')}{calls_ch_str}, 이동완료 {fmt_val(completed_v, '건')}, 탑승객 {fmt_val(passengers_v, '명')}")
+
+    if len(insights) < 4:
+        if not any("대기시간" in ins for ins in insights) and wait_v is not None:
+            prev_wait = wait_r.get("prev_value")
+            if prev_wait is not None:
+                insights.append(f"대기시간 안정: {fmt_val(prev_wait, '분')} → {fmt_val(wait_v, '분')} ({wait_ch*100:+.1f}%) — 큰 변동 없음")
+            else:
+                insights.append(f"대기시간 현황: 평균 {fmt_val(wait_v, '분')}")
+
+    if len(insights) < 4:
+        if not any("가호출 성공률" in ins for ins in insights) and sr_v is not None:
+            prev_sr = success_r.get("prev_value")
+            if prev_sr is not None:
+                insights.append(f"가호출 성공률 안정: {fmt_val(prev_sr, '', True)} → {fmt_val(sr_v, '', True)} ({sr_ch*100:+.1f}%)")
+            else:
+                insights.append(f"가호출 성공률 현황: {fmt_val(sr_v, '', True)}")
+
+    if len(insights) < 4:
+        if not any("성장" in ins for ins in insights) and dau_v is not None:
+            cumul_str = f", 누적회원 {cumul_last:.0f}명" if cumul_last else ""
+            insights.append(f"성장 현황: DAU {fmt_val(dau_v, '명')}, 신규회원 일평균 {fmt_val(newmem_v, '명')}{cumul_str}")
+
+    if len(insights) < 4:
+        if vehicles_v is not None:
+            optime_r = kpi_map.get("대당 운행시간(일평균)", {})
+            optime_v = optime_r.get("value")
+            insights.append(f"공급 현황: 운행차량 {fmt_val(vehicles_v, '대')}, 대당 운행시간 {fmt_val(optime_v, '시간') if optime_v else '-'}")
 
     return insights
 
@@ -397,13 +433,27 @@ def export_html(data, filepath):
   body {{ font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; margin: 40px; color: #333; }}
   h1 {{ font-size: 20px; border-bottom: 3px solid #333; padding-bottom: 8px; }}
   .meta {{ color: #666; font-size: 13px; margin-bottom: 24px; }}
-  h2 {{ font-size: 16px; margin-top: 32px; color: #222; }}
+  h2 {{ font-size: 16px; margin-top: 32px; color: #1A3C7A; }}
   h3 {{ font-size: 14px; margin-top: 20px; color: #444; }}
-  table {{ border-collapse: collapse; width: 100%; margin: 8px 0 16px 0; font-size: 13px; }}
+  table {{ border-collapse: collapse; width: 100%; margin: 8px 0 16px 0; font-size: 13px; table-layout: fixed; }}
   th {{ background: #F5F5F5; border: 1px solid #CCC; padding: 6px 10px; text-align: center; font-weight: bold; }}
-  td {{ border: 1px solid #DDD; padding: 5px 10px; }}
+  td {{ border: 1px solid #DDD; padding: 5px 10px; vertical-align: middle; }}
   td.num {{ text-align: right; }}
   td.center {{ text-align: center; }}
+  .primary-table th:nth-child(1) {{ width: 9%; }}
+  .primary-table th:nth-child(2) {{ width: 22%; }}
+  .primary-table th:nth-child(3) {{ width: 14%; }}
+  .primary-table th:nth-child(4) {{ width: 14%; }}
+  .primary-table th:nth-child(5) {{ width: 14%; }}
+  .primary-table th:nth-child(6) {{ width: 13%; }}
+  .primary-table th:nth-child(7) {{ width: 14%; }}
+  .dd-table th:nth-child(1) {{ width: 17.8%; }}
+  .dd-table th:nth-child(2) {{ width: 21%; }}
+  .dd-table th:nth-child(3) {{ width: 9.8%; }}
+  .dd-table th:nth-child(4) {{ width: 9.8%; }}
+  .dd-table th:nth-child(5) {{ width: 9.8%; }}
+  .dd-table th:nth-child(6) {{ width: 9.8%; }}
+  .dd-table th:nth-child(7) {{ width: 22%; }}
   .negative {{ color: #D32F2F; font-weight: bold; }}
   .positive {{ color: #1565C0; font-weight: bold; }}
   .cat-sep td {{ border-top: 2px solid #999; }}
@@ -424,7 +474,7 @@ def export_html(data, filepath):
 </div>
 
 <h2>1. 1차 핵심지표 요약</h2>
-<table>
+<table class="primary-table">
 <tr><th>구분</th><th>지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>상태</th></tr>
 """
     prev_cat = None
@@ -451,31 +501,14 @@ def export_html(data, filepath):
         html += "\n<h2>2. 2차 세부지표_변동 (1차 핵심지표 ±10% 이상 변동)</h2>\n"
         for sec in data["drilldown_sections"]:
             html += f'\n<h3>{sec["direction"]} {sec["kpi_name"]} ({sec["change_pct"]})</h3>\n'
-            html += '<table>\n<tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>\n'
-            for dd in sec["rows"]:
-                html += f"""<tr>
-  <td>{dd['category']}</td>
-  <td>{dd['name']}</td>
-  <td class="num">{dd['prev_str']}</td>
-  <td class="num">{dd['curr_str']}</td>
-  <td class="num">{dd['diff_str']}</td>
-  <td class="num">{dd['rate_str']}</td>
-  <td>{dd['point']}</td>
-</tr>
-"""
-            html += "</table>\n"
-
-    # 2차 세부지표_안정
-    html += '\n<hr class="section-divider">\n'
-    if data["stable_sections"]:
-        html += "\n<h2>3. 2차 세부지표_안정 (10% 이내 변동)</h2>\n"
-        for sec in data["stable_sections"]:
-            html += f'\n<h3>{sec["direction"]} {sec["kpi_name"]} ({sec["change_pct"]})</h3>\n'
-            html += '<table>\n<tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>\n'
-            for dd in sec["rows"]:
-                html += f"""<tr>
-  <td>{dd['category']}</td>
-  <td>{dd['name']}</td>
+            html += '<table class="dd-table">\n<tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>\n'
+            row_count = len(sec["rows"])
+            for idx, dd in enumerate(sec["rows"]):
+                if idx == 0:
+                    html += f'<tr>\n  <td rowspan="{row_count}">{dd["category"]}</td>\n'
+                else:
+                    html += "<tr>\n"
+                html += f"""  <td>{dd['name']}</td>
   <td class="num">{dd['prev_str']}</td>
   <td class="num">{dd['curr_str']}</td>
   <td class="num">{dd['diff_str']}</td>
@@ -487,10 +520,33 @@ def export_html(data, filepath):
 
     # 핵심 해석
     html += '\n<hr class="section-divider">\n'
-    html += "\n<h2>4. 핵심 해석</h2>\n<ul class=\"insights\">\n"
+    html += "\n<h2>3. 핵심 해석</h2>\n<ul class=\"insights\">\n"
     for ins in data["insights"]:
         html += f"  <li>{ins}</li>\n"
     html += "</ul>\n"
+
+    # [부록] 2차 세부지표_안정
+    if data["stable_sections"]:
+        html += '\n<hr class="section-divider">\n'
+        html += "\n<h2>4. [부록] 2차 세부지표_안정 (10% 이내 변동)</h2>\n"
+        for sec in data["stable_sections"]:
+            html += f'\n<h3>{sec["direction"]} {sec["kpi_name"]} ({sec["change_pct"]})</h3>\n'
+            html += '<table class="dd-table">\n<tr><th>구분</th><th>세부지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>포인트</th></tr>\n'
+            row_count = len(sec["rows"])
+            for idx, dd in enumerate(sec["rows"]):
+                if idx == 0:
+                    html += f'<tr>\n  <td rowspan="{row_count}">{dd["category"]}</td>\n'
+                else:
+                    html += "<tr>\n"
+                html += f"""  <td>{dd['name']}</td>
+  <td class="num">{dd['prev_str']}</td>
+  <td class="num">{dd['curr_str']}</td>
+  <td class="num">{dd['diff_str']}</td>
+  <td class="num">{dd['rate_str']}</td>
+  <td>{dd['point']}</td>
+</tr>
+"""
+            html += "</table>\n"
 
     html += f"""
 <div class="footer">
@@ -619,9 +675,16 @@ def export_docx(data, filepath):
                 for i, w in enumerate(widths2):
                     row.cells[i].width = w
 
-    # ── 2차 세부지표_안정 ──
+    # ── 핵심 해석 ──
+    doc.add_heading('3. 핵심 해석', level=2)
+    for ins in data["insights"]:
+        p = doc.add_paragraph(style='List Bullet')
+        run = p.add_run(ins)
+        run.font.size = Pt(9)
+
+    # ── [부록] 2차 세부지표_안정 ──
     if data["stable_sections"]:
-        doc.add_heading('3. 2차 세부지표_안정 (10% 이내 변동)', level=2)
+        doc.add_heading('4. [부록] 2차 세부지표_안정 (10% 이내 변동)', level=2)
         headers3 = ["구분", "세부지표", "비교기간", "분석기간", "변동값", "변동률", "포인트"]
 
         for sec in data["stable_sections"]:
@@ -657,13 +720,6 @@ def export_docx(data, filepath):
             for row in tbl3.rows:
                 for i, w in enumerate(widths3):
                     row.cells[i].width = w
-
-    # ── 핵심 해석 ──
-    doc.add_heading('4. 핵심 해석', level=2)
-    for ins in data["insights"]:
-        p = doc.add_paragraph(style='List Bullet')
-        run = p.add_run(ins)
-        run.font.size = Pt(9)
 
     # 푸터
     doc.add_paragraph()
@@ -800,13 +856,24 @@ def export_xlsx(data, filepath):
         for i, w in enumerate(col_widths2):
             ws2.column_dimensions[chr(65+i)].width = w
 
-    # ── 2차 세부지표_안정 시트 ──
+    # ── 핵심 해석 시트 ──
+    ws3 = wb.create_sheet("핵심 해석")
+    ws3.merge_cells('A1:B1')
+    ws3['A1'] = "3. 핵심 해석"
+    ws3['A1'].font = Font(name='맑은 고딕', size=11, bold=True)
+
+    for i, ins in enumerate(data["insights"]):
+        cell = ws3.cell(row=i+3, column=1, value=f"• {ins}")
+        cell.font = data_font
+    ws3.column_dimensions['A'].width = 100
+
+    # ── [부록] 2차 세부지표_안정 시트 ──
     if data["stable_sections"]:
-        ws2s = wb.create_sheet("2차 세부지표_안정")
+        ws2s = wb.create_sheet("부록_2차 세부지표_안정")
         headers2s = ["구분", "세부지표", "비교기간", "분석기간", "변동값", "변동률", "포인트"]
 
         ws2s.merge_cells('A1:G1')
-        ws2s['A1'] = "3. 2차 세부지표_안정 (10% 이내 변동)"
+        ws2s['A1'] = "4. [부록] 2차 세부지표_안정 (10% 이내 변동)"
         ws2s['A1'].font = Font(name='맑은 고딕', size=11, bold=True)
 
         row_num = 3
@@ -839,17 +906,6 @@ def export_xlsx(data, filepath):
         col_widths2s = [22, 22, 14, 14, 12, 10, 38]
         for i, w in enumerate(col_widths2s):
             ws2s.column_dimensions[chr(65+i)].width = w
-
-    # ── 핵심 해석 시트 ──
-    ws3 = wb.create_sheet("핵심 해석")
-    ws3.merge_cells('A1:B1')
-    ws3['A1'] = "4. 핵심 해석"
-    ws3['A1'].font = Font(name='맑은 고딕', size=11, bold=True)
-
-    for i, ins in enumerate(data["insights"]):
-        cell = ws3.cell(row=i+3, column=1, value=f"• {ins}")
-        cell.font = data_font
-    ws3.column_dimensions['A'].width = 100
 
     wb.save(filepath)
     print(f"  [XLSX] {filepath}")

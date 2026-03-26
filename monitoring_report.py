@@ -253,6 +253,39 @@ def summarize(daily, agg="sum"):
     }
 
 
+def _parse_date(date_str):
+    """다양한 날짜 형식 파싱 → datetime 객체. MM/DD 형식은 현재 연도 사용."""
+    for fmt in ("%Y-%m-%d", "%m/%d", "%m-%d"):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            if dt.year == 1900:  # MM/DD 파싱 시 기본 연도
+                dt = dt.replace(year=datetime.now().year)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+def filter_daily_by_daytype(daily, daytype):
+    """일별 데이터를 평일/주말로 필터링.
+    daytype: "weekday" (월~금) 또는 "weekend" (토~일)
+    Returns: 필터링된 OrderedDict
+    """
+    if not daily:
+        return OrderedDict()
+    filtered = OrderedDict()
+    for date_str, val in daily.items():
+        dt = _parse_date(date_str)
+        if dt is None:
+            continue
+        is_weekend = dt.weekday() >= 5  # 5=토, 6=일
+        if daytype == "weekend" and is_weekend:
+            filtered[date_str] = val
+        elif daytype == "weekday" and not is_weekend:
+            filtered[date_str] = val
+    return filtered
+
+
 # ================================================================
 # KPI 분석 체계 정의
 # ================================================================
@@ -264,7 +297,7 @@ FRAMEWORK = [
         "description": "얼마나 많이 이용하는가",
         "primary": [
             {
-                "name": "실시간 호출 건수",
+                "name": "실시간 호출 건수(일평균)",
                 "unit": "건",
                 "why": "전체 서비스 이용량의 기본 척도",
                 "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "주간", "요일", "시간대", "연령"]},
@@ -274,30 +307,30 @@ FRAMEWORK = [
                         "desc": "감소 (비교기간 대비 -10% 이상)",
                         "threshold": -0.10,
                         "drilldowns": [
-                            {"name": "가호출 수", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}, "reason": "가호출 대비 실호출 전환 저조"},
-                            {"name": "배차실패 건수", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "배차 매칭 실패로 호출 유실"},
-                            {"name": "호출취소 건수", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "호출취소", "reason": "이용자 자발적 취소 증가"},
+                            {"name": "가호출 수(일평균)", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}, "reason": "가호출 대비 실호출 전환 저조"},
+                            {"name": "배차실패 건수(일평균)", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "배차 매칭 실패로 호출 유실"},
+                            {"name": "호출취소 건수(일평균)", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "호출취소", "reason": "이용자 자발적 취소 증가"},
                             {"name": "운행차량 대수", "match": {"includes": ["운행차량 대수"]}, "reason": "차량 공급 부족에 따른 수요 억제"},
                             {"name": "전화 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": "전화", "is_pct": True, "reason": "전화 호출 채널 비중 변화"},
                             {"name": "앱 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": "앱", "is_pct": True, "reason": "앱 호출 채널 비중 변화"},
-                            {"name": "현장 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": None, "is_pct": True, "reason": "현장(직접) 호출 비중 변화"},
+                            {"name": "현장 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": ["드라이버", None], "is_pct": True, "reason": "드라이버(현장) 호출 비중 변화"},
                         ],
                     },
                     {
                         "desc": "증가 (비교기간 대비 +10% 이상)",
                         "threshold": 0.10,
                         "drilldowns": [
-                            {"name": "이동완료 호출 건수", "match": {"includes": ["이동완료된 실시간 호출"]}, "reason": "호출 증가의 실질 완료 전환 정도"},
+                            {"name": "이동완료 호출 건수(일평균)", "match": {"includes": ["이동완료된 실시간 호출"]}, "reason": "호출 증가의 실질 완료 전환 정도"},
                             {"name": "평균 대기시간", "match": {"includes": ["평균 대기시간"], "excludes": ["시간대", "상위"]}, "reason": "수요 급증에 따른 품질 저하 우려"},
                             {"name": "전화 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": "전화", "is_pct": True, "reason": "전화 호출 채널 비중 변화"},
                             {"name": "앱 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": "앱", "is_pct": True, "reason": "앱 호출 채널 비중 변화"},
-                            {"name": "현장 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": None, "is_pct": True, "reason": "현장(직접) 호출 비중 변화"},
+                            {"name": "현장 호출 비율", "match": {"includes": ["호출 방식별 실시간 호출"]}, "cat_ratio": ["드라이버", None], "is_pct": True, "reason": "드라이버(현장) 호출 비중 변화"},
                         ],
                     },
                 ],
             },
             {
-                "name": "이동완료 호출 건수",
+                "name": "이동완료 호출 건수(일평균)",
                 "unit": "건",
                 "why": "실제로 서비스가 완료된 건수 (핵심 성과)",
                 "match": {"includes": ["이동완료된 실시간 호출"]},
@@ -308,15 +341,15 @@ FRAMEWORK = [
                         "threshold": 0.10,
                         "bidirectional": True,
                         "drilldowns": [
-                            {"name": "미탑승 건수", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "미탑승", "reason": "배차 후 미탑승(노쇼) 발생"},
-                            {"name": "호출취소 건수", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "호출취소", "reason": "이용자 자발적 취소"},
-                            {"name": "배차실패 건수", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "배차 매칭 실패"},
+                            {"name": "미탑승 건수(일평균)", "match": {"includes": ["일별", "실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "미탑승", "reason": "배차 후 미탑승(노쇼) 발생"},
+                            {"name": "호출취소 건수(일평균)", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "호출취소", "reason": "이용자 자발적 취소"},
+                            {"name": "배차실패 건수(일평균)", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "배차 매칭 실패"},
                         ],
                     }
                 ],
             },
             {
-                "name": "총 탑승객 수",
+                "name": "총 탑승객 수(일평균)",
                 "unit": "명",
                 "why": "동승 포함 실 이용 인원 (수요 규모 파악)",
                 "match": {"includes": ["총 탑승객"]},
@@ -327,7 +360,7 @@ FRAMEWORK = [
                         "threshold": 0.10,
                         "bidirectional": True,
                         "drilldowns": [
-                            {"name": "동승 인원 분포", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 비율 변화에 따른 탑승객 증감"},
+                            {"name": "동승 인원 분포(일평균)", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 비율 변화에 따른 탑승객 증감"},
                             {"name": "고령자(60+) 호출 비율", "match": {"includes": ["연령대별 실시간 호출"]}, "cat_ratio": ["60대", "70대", "80대", "90대"], "is_pct": True, "reason": "고령 이용자 호출 비중 변화"},
                             {"name": "성인(20~50대) 호출 비율", "match": {"includes": ["연령대별 실시간 호출"]}, "cat_ratio": ["20대", "30대", "40대", "50대"], "is_pct": True, "reason": "성인 이용자 호출 비중 변화"},
                             {"name": "어린이/청소년 호출 비율", "match": {"includes": ["연령대별 실시간 호출"]}, "cat_ratio": ["0대", "10대"], "is_pct": True, "reason": "어린이/청소년 호출 비중 변화"},
@@ -336,7 +369,7 @@ FRAMEWORK = [
                 ],
             },
             {
-                "name": "대당 탑승객 수",
+                "name": "대당 탑승객 수(일평균)",
                 "unit": "명",
                 "why": "차량당 실질 수요 효율",
                 "match": {"includes": ["차량 대당 탑승객"]},
@@ -347,8 +380,10 @@ FRAMEWORK = [
                         "threshold": 0.10,
                         "bidirectional": True,
                         "drilldowns": [
-                            {"name": "동승 인원 분포", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 비율 변화에 따른 대당 탑승 변화"},
-                            {"name": "실시간 호출 건수", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대", "연령"]}, "reason": "수요 변동에 따른 대당 배분 변화"},
+                            {"name": "대당 탑승객 수(평일)", "match": {"includes": ["차량 대당 탑승객"]}, "weekday_filter": "weekday", "reason": "평일 차량당 탑승객 변화"},
+                            {"name": "대당 탑승객 수(주말)", "match": {"includes": ["차량 대당 탑승객"]}, "weekday_filter": "weekend", "reason": "주말 차량당 탑승객 변화"},
+                            {"name": "동승 인원 분포(일평균)", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 비율 변화에 따른 대당 탑승 변화"},
+                            {"name": "실시간 호출 건수(일평균)", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대", "연령"]}, "reason": "수요 변동에 따른 대당 배분 변화"},
                             {"name": "운행차량 대수", "match": {"includes": ["운행차량 대수"]}, "reason": "차량 수 변동에 따른 대당 배분 변화"},
                         ],
                     }
@@ -372,10 +407,12 @@ FRAMEWORK = [
                         "desc": "증가 (비교기간 대비 +10% 이상)",
                         "threshold": 0.10,
                         "drilldowns": [
+                            {"name": "평균 대기시간(평일)", "match": {"includes": ["평균 대기시간"], "excludes": ["시간대", "상위", "일별"]}, "weekday_filter": "weekday", "reason": "평일 대기시간 변화"},
+                            {"name": "평균 대기시간(주말)", "match": {"includes": ["평균 대기시간"], "excludes": ["시간대", "상위", "일별"]}, "weekday_filter": "weekend", "reason": "주말 대기시간 변화"},
                             {"name": "상위 10% 대기시간", "match": {"includes": ["상위10% 대기시간"]}, "reason": "극단적 장시간 대기 사례 발생"},
                             {"name": "장시간 대기(30분+) 비율", "match": {"includes": ["대기시간 분포"], "excludes": ["시간대"]}, "long_wait_ratio": True, "wait_threshold_min": 30, "is_pct": True, "reason": "30분 이상 장시간 대기 비중"},
                             {"name": "운행차량 대수", "match": {"includes": ["운행차량 대수"]}, "reason": "차량 공급 부족에 따른 대기 증가"},
-                            {"name": "실시간 호출 건수", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대"]}, "reason": "수요 대비 공급 불균형"},
+                            {"name": "실시간 호출 건수(일평균)", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대"]}, "reason": "수요 대비 공급 불균형"},
                         ],
                     }
                 ],
@@ -393,7 +430,7 @@ FRAMEWORK = [
                         "drilldowns": [
                             {"name": "상위 10% 우회비율", "match": {"includes": ["상위10% 우회비율"]}, "reason": "극단적 우회 경로 발생"},
                             {"name": "평균 이동시간", "match": {"includes": ["이동시간"], "excludes": ["시간대"]}, "col": "평균 이동시간", "reason": "우회 경로 증가가 이동시간 상승 유발"},
-                            {"name": "동승 인원 분포", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 증가로 경유지 추가"},
+                            {"name": "동승 인원 분포(일평균)", "match": {"includes": ["동승 인원"], "excludes": ["시간대"]}, "reason": "동승 증가로 경유지 추가"},
                         ],
                     }
                 ],
@@ -439,13 +476,13 @@ FRAMEWORK = [
                         "drilldowns": [
                             {"name": "일별 운행 차량 수", "match": {"includes": ["일별 운행 차량"]}, "reason": "특정일 차량 미운행"},
                             {"name": "근무 이행률", "match": {"includes": ["근무 이행률"], "excludes": ["운행"]}, "reason": "기사 근무 미이행"},
-                            {"name": "배차실패 건수", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "차량 감소에 따른 배차 실패 연쇄"},
+                            {"name": "배차실패 건수(일평균)", "match": {"includes": ["실시간 호출 결과"], "excludes": ["요일", "시간대"]}, "col": "배차실패", "reason": "차량 감소에 따른 배차 실패 연쇄"},
                         ],
                     }
                 ],
             },
             {
-                "name": "평균 대당 운행시간",
+                "name": "대당 운행시간(일평균)",
                 "unit": "시간",
                 "why": "차량당 실제 운행 효율",
                 "match": {"includes": ["평균 대당 운행시간"]},
@@ -475,16 +512,18 @@ FRAMEWORK = [
                         "desc": "하락 (비교기간 대비 -10%p 이상)",
                         "threshold": -0.10,
                         "drilldowns": [
+                            {"name": "가호출 성공률(평일)", "match": {"includes": ["가호출 성공률"], "excludes": ["세션", "시간대", "일별"]}, "weekday_filter": "weekday", "is_pct": True, "reason": "평일 가호출 성공률 변화"},
+                            {"name": "가호출 성공률(주말)", "match": {"includes": ["가호출 성공률"], "excludes": ["세션", "시간대", "일별"]}, "weekday_filter": "weekend", "is_pct": True, "reason": "주말 가호출 성공률 변화"},
                             {"name": "피크 시간대 가호출 성공률", "match": {"includes": ["시간대별 가호출 성공률"]}, "peak_success": True, "is_pct": True, "reason": "피크 시간대 가호출 성공률 변화"},
-                            {"name": "가호출 성공/실패 회원", "match": {"includes": ["가호출 성공", "실패", "회원"], "excludes": ["시간대"]}, "reason": "가호출 실패 경험 이용자 증가"},
+                            {"name": "가호출 성공/실패 회원(일평균)", "match": {"includes": ["가호출 성공", "실패", "회원"], "excludes": ["시간대"]}, "reason": "가호출 실패 경험 이용자 증가"},
                             {"name": "운행차량 대수", "match": {"includes": ["운행차량 대수"]}, "reason": "차량 공급 부족에 따른 매칭 실패"},
-                            {"name": "가호출 수", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}, "reason": "수요 급증 대비 공급 부족"},
+                            {"name": "가호출 수(일평균)", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}, "reason": "수요 급증 대비 공급 부족"},
                         ],
                     }
                 ],
             },
             {
-                "name": "평균 대당 운행거리",
+                "name": "대당 운행거리(일평균)",
                 "unit": "km",
                 "why": "차량당 실제 이동 거리 (공급 활용도)",
                 "match": {"includes": ["평균 대당 운행거리"], "excludes": ["월간", "주간"]},
@@ -496,7 +535,7 @@ FRAMEWORK = [
                         "bidirectional": True,
                         "drilldowns": [
                             {"name": "일간 평균 대당 운행거리", "match": {"includes": ["일간 평균 대당 운행거리"]}, "reason": "일별 운행거리 편차"},
-                            {"name": "실시간 호출 건수", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대", "연령"]}, "reason": "수요 변동에 따른 운행거리 변화"},
+                            {"name": "실시간 호출 건수(일평균)", "match": {"includes": ["실시간 호출"], "excludes": ["결과", "순 회원", "이동완료", "누적", "요일", "시간대", "연령"]}, "reason": "수요 변동에 따른 운행거리 변화"},
                             {"name": "운행차량 대수", "match": {"includes": ["운행차량 대수"]}, "reason": "차량 수 변동에 따른 대당 거리 변화"},
                         ],
                     }
@@ -541,16 +580,16 @@ FRAMEWORK = [
                         "bidirectional": True,
                         "drilldowns": [
                             {"name": "WAU (주간 활성 회원)", "match": {"includes": ["주간 활성"]}, "reason": "주간 활성도 추이 연동"},
-                            {"name": "신규 지역 회원", "match": {"includes": ["신규 지역 회원"], "excludes": ["일별"]}, "reason": "신규 유입 증감 영향"},
+                            {"name": "신규 지역 회원(일평균)", "match": {"includes": ["신규 지역 회원"], "excludes": ["일별"]}, "reason": "신규 유입 증감 영향"},
                             {"name": "활성 회원 평균연령", "match": {"includes": ["활성 지역 회원 연령대"]}, "age_avg": True, "unit": "세", "reason": "이용자 평균 연령 변화"},
-                            {"name": "가호출 성공률", "match": {"includes": ["가호출 성공률"], "excludes": ["세션", "시간대"]}, "reason": "서비스 품질 불만에 따른 이탈"},
+                            {"name": "가호출 성공률", "match": {"includes": ["가호출 성공률"], "excludes": ["세션", "시간대"]}, "is_pct": True, "reason": "서비스 품질 불만에 따른 이탈"},
                             {"name": "평균 대기시간", "match": {"includes": ["평균 대기시간"], "excludes": ["시간대", "상위"]}, "reason": "대기시간 증가에 따른 이탈"},
                         ],
                     }
                 ],
             },
             {
-                "name": "신규 지역 회원",
+                "name": "신규 지역 회원(일평균)",
                 "unit": "명",
                 "why": "서비스 성장세 파악",
                 "match": {"includes": ["신규 지역 회원"], "excludes": ["일별"]},
@@ -561,8 +600,8 @@ FRAMEWORK = [
                         "threshold": 0.10,
                         "bidirectional": True,
                         "drilldowns": [
-                            {"name": "누적 지역 회원", "match": {"includes": ["누적 지역 회원"], "excludes": ["일별"]}, "reason": "전체 회원 기반 성장세"},
-                            {"name": "가호출 순 회원", "match": {"includes": ["가호출 순 회원"]}, "reason": "가입 후 미이용(잠재 이탈) 회원"},
+                            {"name": "누적 지역 회원(일평균)", "match": {"includes": ["누적 지역 회원"], "excludes": ["일별"]}, "reason": "전체 회원 기반 성장세"},
+                            {"name": "가호출 순 회원(일평균)", "match": {"includes": ["가호출 순 회원"]}, "reason": "가입 후 미이용(잠재 이탈) 회원"},
                         ],
                     }
                 ],
@@ -597,7 +636,7 @@ def parse_dir_info(data_dir):
 
 
 def fmt_val(val, unit="", is_pct=False):
-    """값 포매팅"""
+    """값 포매팅 (소수점 첫째자리까지)"""
     if val is None:
         return "-"
     if is_pct:
@@ -605,10 +644,8 @@ def fmt_val(val, unit="", is_pct=False):
     if isinstance(val, float):
         if abs(val) >= 100:
             return f"{val:,.0f}{unit}"
-        elif abs(val) >= 10:
-            return f"{val:.1f}{unit}"
         else:
-            return f"{val:.2f}{unit}"
+            return f"{val:.1f}{unit}"
     return f"{val:,}{unit}"
 
 
@@ -655,7 +692,7 @@ def get_kpi_value(charts, kpi_def):
         return None, OrderedDict(), chart
 
     stats = summarize(daily, kpi_def.get("agg", "sum"))
-    value = stats["total"] if kpi_def.get("agg") == "sum" else stats["avg"]
+    value = stats["avg"]  # 항상 일일 평균 (기간 길이 무관 비교 가능)
     return value, daily, chart
 
 
@@ -1066,6 +1103,18 @@ def get_drilldown_value(charts, dd_def):
     all_matched = find_all_charts(charts, **match)
     col_filter = dd_def.get("col")
 
+    # weekday_filter: 평일/주말 필터링 모드
+    daytype = dd_def.get("weekday_filter")
+    if daytype:
+        for chart in all_matched:
+            daily = extract_daily(chart, col_filter)
+            if daily:
+                filtered = filter_daily_by_daytype(daily, daytype)
+                if filtered:
+                    stats = summarize(filtered)
+                    return stats, filtered
+        return None, OrderedDict()
+
     # age_avg: 연령대 가중평균 추출 모드
     if dd_def.get("age_avg"):
         for chart in all_matched:
@@ -1150,6 +1199,209 @@ def get_drilldown_value(charts, dd_def):
     return None, OrderedDict()
 
 
+def dynamic_point(kpi_name, kpi_change, dd_name, dd_change, dd_curr, dd_prev, dd_is_pct=False):
+    """2차 세부지표 동적 포인트 생성 (~20자 이내).
+    1차 핵심지표와 연결하여 의미적 해석.
+    """
+    # ── 데이터 부족 ──
+    if dd_curr is None and dd_prev is None:
+        return "데이터 없음"
+    if dd_prev is None and dd_curr is not None:
+        return "비교기간 데이터 없음"
+    if dd_curr is None and dd_prev is not None:
+        return "분석기간 데이터 없음"
+
+    # ── 0→0 변동 없음 ──
+    if dd_change is None:
+        if dd_curr == 0 and dd_prev == 0:
+            # 건수 지표 0→0
+            if "건수" in dd_name:
+                return "발생 없음"
+            return "변동 없음"
+        return "변동률 산출 불가"
+
+    # ── inf (0→N 또는 N→0) ──
+    if dd_change == float("inf"):
+        if "건수" in dd_name:
+            return f"미발생→{dd_curr:.0f}건 신규 발생"
+        return "신규 발생"
+    if dd_change == float("-inf"):
+        if "건수" in dd_name:
+            return "완전 해소 (0건)"
+        return "완전 해소"
+
+    dd_dir = "증가" if dd_change > 0 else "감소"
+    dd_pct = f"{abs(dd_change)*100:.0f}%"
+    kpi_dir = "증가" if (kpi_change and kpi_change > 0) else "감소"
+
+    # ── 특정 지표별 의미적 해석 ──
+
+    # 운행차량 대수: 절대값 기반
+    if "운행차량" in dd_name:
+        if abs(dd_change) < 0.03:
+            if dd_curr is not None and dd_curr <= 2:
+                return f"{dd_curr:.0f}대 유지, 증차 여지 없음"
+            return f"{dd_curr:.0f}대 유지, 공급 변동 없음"
+        return f"{dd_prev:.0f}→{dd_curr:.0f}대, 공급 {dd_dir}"
+
+    # 배차실패/호출취소/미탑승 건수: 절대값 + 맥락
+    if any(k in dd_name for k in ["배차실패", "호출취소", "미탑승"]):
+        event = dd_name.split("(")[0].strip()
+        if dd_curr == 0 and dd_prev == 0:
+            return f"{event} 없음"
+        if dd_curr == 0:
+            return f"{event} 해소"
+        if dd_prev == 0:
+            return f"{event} 신규 발생"
+        if abs(dd_change) < 0.05:
+            return f"{event} 유지"
+        return f"{event} {dd_pct} {dd_dir}"
+
+    # 가호출 수: 실호출과의 관계
+    if "가호출 수" in dd_name:
+        if abs(dd_change) < 0.05:
+            return "가호출 안정"
+        if kpi_change and kpi_change < -0.1 and dd_change > 0.1:
+            return "가호출 증가, 실호출 미전환"
+        if kpi_change and kpi_change < -0.1 and dd_change < -0.1:
+            return "가호출/실호출 동반 감소"
+        if kpi_change and kpi_change > 0.1 and dd_change > 0.1:
+            return "가호출 증가, 수요 견인"
+        return f"가호출 {dd_pct} {dd_dir}"
+
+    # 대기시간 관련: 절대값 임계치
+    if "대기시간" in dd_name:
+        if "상위" in dd_name or "10%" in dd_name:
+            if dd_curr is not None and dd_curr >= 10:
+                return f"상위10% {dd_curr:.0f}분, 장시간 대기"
+            if abs(dd_change) < 0.05:
+                return f"극단 대기 {dd_curr:.1f}분 유지"
+            return f"극단 대기 {dd_pct} {dd_dir}"
+        if "평일" in dd_name or "주말" in dd_name:
+            daytype = "평일" if "평일" in dd_name else "주말"
+            if abs(dd_change) < 0.05:
+                return f"{daytype} {dd_curr:.1f}분 안정"
+            return f"{daytype} {dd_curr:.1f}분 ({dd_pct} {dd_dir})"
+        if abs(dd_change) < 0.05:
+            return f"{dd_curr:.1f}분 안정"
+        return f"{dd_prev:.1f}→{dd_curr:.1f}분 {dd_dir}"
+
+    # 이동시간
+    if "이동시간" in dd_name:
+        if abs(dd_change) < 0.05:
+            return f"{dd_curr:.1f}분 안정"
+        return f"{dd_prev:.1f}→{dd_curr:.1f}분 {dd_dir}"
+
+    # 우회비율
+    if "우회비율" in dd_name:
+        if abs(dd_change) < 0.05:
+            return f"{dd_curr:.1f}배 안정"
+        if dd_curr is not None and dd_curr > 1.5:
+            return f"{dd_curr:.1f}배, 우회 심화"
+        return f"{dd_prev:.1f}→{dd_curr:.1f}배 {dd_dir}"
+
+    # 가호출 성공률: 임계치 기반
+    if "성공률" in dd_name:
+        if "평일" in dd_name or "주말" in dd_name:
+            daytype = "평일" if "평일" in dd_name else "주말"
+            if dd_curr is not None:
+                return f"{daytype} {dd_curr*100:.0f}% ({dd_pct} {dd_dir})"
+        if "피크" in dd_name:
+            if dd_curr is not None and dd_curr < 0.5:
+                return f"피크 {dd_curr*100:.0f}%, 매칭 부족"
+            if dd_curr is not None:
+                return f"피크 {dd_curr*100:.0f}% ({dd_pct} {dd_dir})"
+        if dd_curr is not None and dd_curr < 0.3:
+            return f"{dd_curr*100:.0f}%, 매칭 심각 부족"
+        if dd_curr is not None and dd_curr < 0.5:
+            return f"{dd_curr*100:.0f}%, 매칭 부족"
+
+    # 호출 비율 (전화/앱/현장): 비중 변화 해석
+    if "호출 비율" in dd_name:
+        channel = dd_name.replace(" 호출 비율", "")
+        if abs(dd_change) < 0.05:
+            return f"{channel} 비중 유지"
+        if dd_curr is not None and dd_curr > 0.5:
+            return f"{channel} 비중 {dd_curr*100:.0f}%로 주도적"
+        if dd_curr is not None:
+            return f"{channel} {dd_prev*100:.0f}→{dd_curr*100:.0f}%"
+        return f"{channel} 비중 {dd_dir}"
+
+    # 연령 관련
+    if "연령" in dd_name:
+        if dd_curr is not None:
+            return f"평균 {dd_curr:.0f}세 ({dd_pct} {dd_dir})"
+
+    # 회원 관련: 절대값 맥락
+    if "회원" in dd_name:
+        if "누적" in dd_name and dd_curr is not None:
+            return f"누적 {dd_curr:.0f}명 ({dd_pct} {dd_dir})"
+        if "신규" in dd_name:
+            return f"신규 {dd_curr:.1f}명/일 ({dd_pct} {dd_dir})"
+        if abs(dd_change) < 0.05:
+            return f"{dd_curr:.1f}명 안정"
+        return f"{dd_prev:.1f}→{dd_curr:.1f}명 {dd_dir}"
+
+    # 근무 관련
+    if "근무" in dd_name:
+        if abs(dd_change) < 0.03:
+            return f"{dd_curr:.1f}시간 유지"
+        return f"{dd_prev:.1f}→{dd_curr:.1f}시간 {dd_dir}"
+
+    # 장시간 대기 비율
+    if "장시간" in dd_name:
+        if dd_curr is not None and dd_curr == 0:
+            return "장시간 대기 없음"
+        if dd_curr is not None:
+            return f"30분+ 비율 {dd_curr*100:.0f}%"
+
+    # 탑승객 수 (평일/주말 등)
+    if "탑승객" in dd_name:
+        if "평일" in dd_name or "주말" in dd_name:
+            daytype = "평일" if "평일" in dd_name else "주말"
+            if abs(dd_change) < 0.05:
+                return f"{daytype} {dd_curr:.1f}명 안정"
+            return f"{daytype} {dd_curr:.1f}명 ({dd_pct} {dd_dir})"
+
+    # ── 일반 패턴 (위에 해당 안 될 때) ──
+    if kpi_change is None or kpi_change == 0:
+        return f"{dd_pct} {dd_dir}"
+
+    same_dir = (kpi_change > 0) == (dd_change > 0)
+
+    # 안정 (±5% 미만)
+    if abs(dd_change) < 0.05:
+        return "안정 유지, 영향 제한적"
+
+    if dd_is_pct:
+        if same_dir:
+            if abs(dd_change) >= 0.3:
+                return f"비중 큰 폭 {dd_dir}, 주요 요인"
+            return f"비중 {dd_dir} ({dd_pct})"
+        else:
+            if abs(dd_change) >= 0.3:
+                return f"비중 역방향 {dd_dir} ({dd_pct})"
+            return f"소폭 역방향 {dd_dir}"
+
+    if same_dir:
+        ratio = abs(dd_change) / abs(kpi_change) if abs(kpi_change) > 0.01 else 1
+        if ratio > 2.0:
+            return f"{dd_pct} {dd_dir}, 핵심 요인"
+        elif ratio > 1.2:
+            return f"{dd_pct} {dd_dir}, 주요 요인"
+        elif ratio > 0.5:
+            return f"동반 {dd_dir} ({dd_pct})"
+        else:
+            return f"소폭 {dd_dir}, 영향 제한적"
+    else:
+        if abs(dd_change) >= 0.3:
+            return f"역방향 {dd_dir} ({dd_pct})"
+        elif abs(dd_change) >= 0.1:
+            return f"{dd_dir} 전환 ({dd_pct})"
+        else:
+            return f"소폭 역방향 {dd_dir}"
+
+
 def compute_change(curr_val, prev_val):
     """비교기간 대비 변동률 계산"""
     if prev_val is None or curr_val is None:
@@ -1171,34 +1423,38 @@ def should_trigger(change, trigger_def):
     return change >= threshold
 
 
+def _is_negative_change(change, kpi_name):
+    """변동이 부정적인지 판단. True=부정(빨강), False=긍정(파랑)"""
+    if change is None:
+        return False
+    # 감소가 부정적인 지표 (수요/성장: 줄면 나쁨, 성공률: 줄면 나쁨)
+    if "성공률" in kpi_name:
+        return change < 0
+    # 증가가 부정적인 지표 (대기시간/우회비율/이동시간/경로이탈: 늘면 나쁨)
+    if "대기시간" in kpi_name or "우회비율" in kpi_name or "이동시간" in kpi_name or "경로이탈" in kpi_name:
+        return change > 0
+    # 일반 지표 (호출/탑승객/회원/차량 등): 감소가 부정적
+    return change < 0
+
+
 def status_label(change, kpi_name=""):
-    """변동률에 따른 상태 라벨"""
+    """변동률에 따른 상태 라벨 (증가/감소 + 색상으로 긍정/부정 구분)"""
     if change is None:
         return "-"
-    if "대기시간" in kpi_name or "우회비율" in kpi_name or "이동시간" in kpi_name:
-        # 품질 지표: 증가=악화, 감소=개선
-        if abs(change) < 0.10:
-            return "유지"
-        return "악화" if change > 0 else "개선"
-    if "성공률" in kpi_name:
-        # 성공률: 감소=악화, 증가=개선
-        if abs(change) < 0.10:
-            return "유지"
-        return "악화" if change < 0 else "개선"
-    # 일반 지표: 증가=증가, 감소=감소
     if abs(change) < 0.10:
         return "유지"
     return "증가" if change > 0 else "감소"
 
 
-def color_status(stat_text):
+def color_status(stat_text, is_negative=False):
     """상태 텍스트에 색상 적용 (부정=빨강, 긍정=파랑)"""
     clean = stat_text.replace("⚠ ", "").strip()
-    if clean in ("악화", "감소"):
+    if clean == "유지" or clean == "-":
+        return stat_text
+    if is_negative:
         return f"{RED}{stat_text}{RESET}"
-    elif clean in ("개선", "증가"):
+    else:
         return f"{BLUE}{stat_text}{RESET}"
-    return stat_text
 
 
 def strip_ansi(text):
@@ -1344,8 +1600,13 @@ def generate_report(data_dir, compare_dir=None):
                 if all_dds:
                     stable_list.append(r)
 
-        stat_display = f"⚠ {stat}" if is_triggered else stat
-        stat_display = color_status(stat_display)
+        # ±10% 이상이면 색상, ±20% 이상이면 ⚠ 추가
+        if change is not None and abs(change) >= 0.20:
+            stat_display = f"⚠ {stat}"
+        else:
+            stat_display = stat
+        is_neg = _is_negative_change(change, kpi["name"])
+        stat_display = color_status(stat_display, is_neg)
 
         print(table_row([cat["category"], kpi["name"], prev_str, curr_str, diff_str, rate_str, stat_display], W1))
 
@@ -1427,121 +1688,39 @@ def generate_report(data_dir, compare_dir=None):
                     if dd_is_pct:
                         dd_diff_str = f"{dd_diff*100:+.1f}%p"
                     else:
-                        dd_diff_str = f"{dd_diff:+.2f}" if abs(dd_diff) < 10 else f"{dd_diff:+.1f}"
+                        dd_diff_str = f"{dd_diff:+.1f}"
                     dd_change = compute_change(curr_num, prev_num)
                     dd_rate_str = f"{dd_change*100:+.1f}%" if dd_change is not None else "-"
                 else:
                     dd_diff_str = "-"
                     dd_rate_str = "-"
 
-                reason = dd.get("reason", "")
-                print(table_row([kpi["name"], dd_display_name, prev_dd_str, curr_dd_str, dd_diff_str, dd_rate_str, reason], W2))
+                dd_change_val = compute_change(curr_num, prev_num) if curr_num is not None and prev_num is not None else None
+                point = dynamic_point(kpi["name"], change, dd_display_name, dd_change_val, curr_num, prev_num, dd_is_pct)
+                print(table_row([kpi["name"], dd_display_name, prev_dd_str, curr_dd_str, dd_diff_str, dd_rate_str, point], W2))
 
             print(table_sep(W2))
 
     # ================================================================
-    # 3. 2차 세부지표_안정 (10% 이내 변동)
+    # 3. 핵심 해석
     # ================================================================
-    if stable_list:
-        print(f"\n  3. 2차 세부지표_안정 (10% 이내 변동)")
-
-        W3 = [20, 20, 12, 12, 10, 8, 34]
-        headers3 = ["구분", "세부지표", "비교기간", "분석기간", "변동값", "변동률", "포인트"]
-
-        for r in stable_list:
-            kpi = r["kpi"]
-            change = r["change"]
-
-            direction_icon = "▲" if change > 0 else ("▼" if change < 0 else "─")
-            print(f"\n  {direction_icon} {kpi['name']} ({change*100:+.1f}%)")
-
-            # 해당 KPI의 모든 드릴다운 수집
-            all_dds = []
-            for trigger in kpi.get("triggers", []):
-                all_dds.extend(trigger.get("drilldowns", []))
-
-            if not all_dds:
-                continue
-
-            print(table_sep(W3))
-            print(table_row(headers3, W3))
-            print(table_sep(W3, "═"))
-
-            # 중복 제거
-            seen = set()
-            for dd in all_dds:
-                if dd["name"] in seen:
-                    continue
-                seen.add(dd["name"])
-
-                # 분석기간 값
-                dd_is_pct = dd.get("is_pct", False)
-                dd_stats, _ = get_drilldown_value(charts, dd)
-                curr_num = None
-                if dd_stats and dd_stats["count"] > 0:
-                    curr_num = dd_stats["avg"]
-                    curr_dd_str = fmt_val(dd_stats["avg"], is_pct=dd_is_pct)
-                else:
-                    curr_dd_str = "-"
-
-                # 동적 이름 처리
-                dd_display_name = _resolve_dynamic_name(dd, dd_stats)
-
-                # 비교기간 값
-                prev_num = None
-                if has_compare and prev_charts:
-                    dd_prev_stats, _ = get_drilldown_value(prev_charts, dd)
-                    if dd_prev_stats and dd_prev_stats["count"] > 0:
-                        prev_num = dd_prev_stats["avg"]
-                        prev_dd_str = fmt_val(dd_prev_stats["avg"], is_pct=dd_is_pct)
-                    else:
-                        prev_dd_str = "-"
-                else:
-                    prev_dd_str = "-"
-
-                # 사용 후 임시 시간대 정보 정리
-                for k in list(dd.keys()):
-                    if k.startswith("_"):
-                        del dd[k]
-
-                # 변동값, 변동률 계산
-                if curr_num is not None and prev_num is not None:
-                    dd_diff = curr_num - prev_num
-                    if dd_is_pct:
-                        dd_diff_str = f"{dd_diff*100:+.1f}%p"
-                    else:
-                        dd_diff_str = f"{dd_diff:+.2f}" if abs(dd_diff) < 10 else f"{dd_diff:+.1f}"
-                    dd_change = compute_change(curr_num, prev_num)
-                    dd_rate_str = f"{dd_change*100:+.1f}%" if dd_change is not None else "-"
-                else:
-                    dd_diff_str = "-"
-                    dd_rate_str = "-"
-
-                reason = dd.get("reason", "")
-                print(table_row([kpi["name"], dd_display_name, prev_dd_str, curr_dd_str, dd_diff_str, dd_rate_str, reason], W3))
-
-            print(table_sep(W3))
-
-    # ================================================================
-    # 4. 핵심 해석
-    # ================================================================
-    print(f"\n  4. 핵심 해석")
+    print(f"\n  3. 핵심 해석")
 
     # KPI 맵 + 일별 데이터 기반 자유 해석 생성
     kpi_map = {}
     for r in all_kpi_results:
         kpi_map[r["kpi"]["name"]] = r
 
-    calls_r = kpi_map.get("실시간 호출 건수", {})
-    completed_r = kpi_map.get("이동완료 호출 건수", {})
-    passengers_r = kpi_map.get("총 탑승객 수", {})
+    calls_r = kpi_map.get("실시간 호출 건수(일평균)", {})
+    completed_r = kpi_map.get("이동완료 호출 건수(일평균)", {})
+    passengers_r = kpi_map.get("총 탑승객 수(일평균)", {})
     wait_r = kpi_map.get("평균 대기시간", {})
     detour_r = kpi_map.get("평균 우회비율", {})
     travel_r = kpi_map.get("평균 이동시간", {})
     vehicles_r = kpi_map.get("운행차량 대수", {})
     success_r = kpi_map.get("가호출 성공률", {})
     dau_r = kpi_map.get("DAU (일간 활성 회원)", {})
-    newmem_r = kpi_map.get("신규 지역 회원", {})
+    newmem_r = kpi_map.get("신규 지역 회원(일평균)", {})
 
     insights = []
 
@@ -1688,7 +1867,45 @@ def generate_report(data_dir, compare_dir=None):
     if passengers_v and completed_v and completed_v > 0:
         per_call = passengers_v / completed_v
         if per_call > 1.2 or per_call < 0.8:
-            insights.append(f"호당 평균 탑승객 {per_call:.1f}명: {'동승 이용 활발' if per_call > 1.3 else '1인 이용 위주'}")
+            insights.append(f"호출당 평균 탑승객 {per_call:.1f}명: {'동승 이용 활발' if per_call > 1.3 else '1인 이용 위주'}")
+
+    # ─ 최소 4개 보장: 변동 조건 미충족 시 현황 요약으로 보충 ─
+    if len(insights) < 4:
+        # 수요 현황 (변동 조건 미충족 시)
+        if not any("수요" in ins for ins in insights) and calls_v is not None:
+            calls_ch_str = f"({calls_ch*100:+.1f}%)" if calls_ch is not None else ""
+            insights.append(f"수요 현황: 일평균 호출 {fmt_val(calls_v, '건')}{calls_ch_str}, 이동완료 {fmt_val(completed_v, '건')}, 탑승객 {fmt_val(passengers_v, '명')}")
+
+    if len(insights) < 4:
+        # 대기시간 현황 (변동 조건 미충족 시)
+        if not any("대기시간" in ins for ins in insights) and wait_v is not None:
+            prev_wait = wait_r.get("prev_value")
+            if prev_wait is not None:
+                insights.append(f"대기시간 안정: {fmt_val(prev_wait, '분')} → {fmt_val(wait_v, '분')} ({wait_ch*100:+.1f}%) — 큰 변동 없음")
+            else:
+                insights.append(f"대기시간 현황: 평균 {fmt_val(wait_v, '분')}")
+
+    if len(insights) < 4:
+        # 가호출 성공률 현황 (변동 조건 미충족 시)
+        if not any("가호출 성공률" in ins for ins in insights) and sr_v is not None:
+            prev_sr = success_r.get("prev_value")
+            if prev_sr is not None:
+                insights.append(f"가호출 성공률 안정: {fmt_val(prev_sr, '', True)} → {fmt_val(sr_v, '', True)} ({sr_ch*100:+.1f}%)")
+            else:
+                insights.append(f"가호출 성공률 현황: {fmt_val(sr_v, '', True)}")
+
+    if len(insights) < 4:
+        # 성장 현황 (변동 조건 미충족 시)
+        if not any("성장" in ins for ins in insights) and dau_v is not None:
+            cumul_str = f", 누적회원 {cumul_last:.0f}명" if cumul_last else ""
+            insights.append(f"성장 현황: DAU {fmt_val(dau_v, '명')}, 신규회원 일평균 {fmt_val(newmem_v, '명')}{cumul_str}")
+
+    if len(insights) < 4:
+        # 공급 현황
+        if vehicles_v is not None:
+            optime_r = kpi_map.get("대당 운행시간(일평균)", {})
+            optime_v = optime_r.get("value")
+            insights.append(f"공급 현황: 운행차량 {fmt_val(vehicles_v, '대')}, 대당 운행시간 {fmt_val(optime_v, '시간') if optime_v else '-'}")
 
     # 출력
     if insights:
@@ -1701,6 +1918,91 @@ def generate_report(data_dir, compare_dir=None):
     print(f"\n  ※ 변동 감지 기준: 비교기간 대비 ±10% | 분석 흐름: 수요→품질→공급→성장")
     if not has_compare:
         print(f"  ※ 비교 데이터 없음: python monitoring_report.py <분석기간> <비교기간>")
+
+    # ================================================================
+    # 4. [부록] 2차 세부지표_안정 (10% 이내 변동)
+    # ================================================================
+    if stable_list:
+        print(f"\n  4. [부록] 2차 세부지표_안정 (10% 이내 변동)")
+
+        W3 = [20, 20, 12, 12, 10, 8, 34]
+        headers3 = ["구분", "세부지표", "비교기간", "분석기간", "변동값", "변동률", "포인트"]
+
+        for r in stable_list:
+            kpi = r["kpi"]
+            change = r["change"]
+
+            direction_icon = "▲" if change > 0 else ("▼" if change < 0 else "─")
+            print(f"\n  {direction_icon} {kpi['name']} ({change*100:+.1f}%)")
+
+            # 해당 KPI의 모든 드릴다운 수집
+            all_dds = []
+            for trigger in kpi.get("triggers", []):
+                all_dds.extend(trigger.get("drilldowns", []))
+
+            if not all_dds:
+                continue
+
+            print(table_sep(W3))
+            print(table_row(headers3, W3))
+            print(table_sep(W3, "═"))
+
+            # 중복 제거
+            seen = set()
+            for dd in all_dds:
+                if dd["name"] in seen:
+                    continue
+                seen.add(dd["name"])
+
+                # 분석기간 값
+                dd_is_pct = dd.get("is_pct", False)
+                dd_stats, _ = get_drilldown_value(charts, dd)
+                curr_num = None
+                if dd_stats and dd_stats["count"] > 0:
+                    curr_num = dd_stats["avg"]
+                    curr_dd_str = fmt_val(dd_stats["avg"], is_pct=dd_is_pct)
+                else:
+                    curr_dd_str = "-"
+
+                # 동적 이름 처리
+                dd_display_name = _resolve_dynamic_name(dd, dd_stats)
+
+                # 비교기간 값
+                prev_num = None
+                if has_compare and prev_charts:
+                    dd_prev_stats, _ = get_drilldown_value(prev_charts, dd)
+                    if dd_prev_stats and dd_prev_stats["count"] > 0:
+                        prev_num = dd_prev_stats["avg"]
+                        prev_dd_str = fmt_val(dd_prev_stats["avg"], is_pct=dd_is_pct)
+                    else:
+                        prev_dd_str = "-"
+                else:
+                    prev_dd_str = "-"
+
+                # 사용 후 임시 시간대 정보 정리
+                for k in list(dd.keys()):
+                    if k.startswith("_"):
+                        del dd[k]
+
+                # 변동값, 변동률 계산
+                if curr_num is not None and prev_num is not None:
+                    dd_diff = curr_num - prev_num
+                    if dd_is_pct:
+                        dd_diff_str = f"{dd_diff*100:+.1f}%p"
+                    else:
+                        dd_diff_str = f"{dd_diff:+.1f}"
+                    dd_change = compute_change(curr_num, prev_num)
+                    dd_rate_str = f"{dd_change*100:+.1f}%" if dd_change is not None else "-"
+                else:
+                    dd_diff_str = "-"
+                    dd_rate_str = "-"
+
+                dd_change_val = compute_change(curr_num, prev_num) if curr_num is not None and prev_num is not None else None
+                point = dynamic_point(kpi["name"], change, dd_display_name, dd_change_val, curr_num, prev_num, dd_is_pct)
+                print(table_row([kpi["name"], dd_display_name, prev_dd_str, curr_dd_str, dd_diff_str, dd_rate_str, point], W3))
+
+            print(table_sep(W3))
+
     print(f"{'='*80}\n")
 
 
@@ -1731,6 +2033,59 @@ def auto_export(data_dir, compare_dir=None):
     print(f"\n  [파일 저장 완료] {save_dir}")
     print(f"    - {prefix}.html")
     print(f"    - {prefix}.xlsx")
+
+    # GitHub Pages 자동 배포
+    auto_push(save_dir, data["region"], data["period_code"])
+
+
+def auto_push(save_dir, region, period_code):
+    """리포트 파일을 GitHub에 자동 push하여 Pages 배포"""
+    import subprocess
+
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+
+    # git repo 확인
+    result = subprocess.run(
+        ["git", "remote", "-v"], cwd=repo_root,
+        capture_output=True, text=True, encoding="utf-8"
+    )
+    if "origin" not in result.stdout:
+        print("\n  [push 건너뜀] git remote 'origin' 미설정")
+        return
+
+    # 리포트 파일 staging
+    rel_path = os.path.relpath(save_dir, repo_root)
+    subprocess.run(
+        ["git", "add", rel_path], cwd=repo_root,
+        capture_output=True, text=True, encoding="utf-8"
+    )
+
+    # 변경사항 확인
+    diff = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"], cwd=repo_root,
+        capture_output=True, text=True, encoding="utf-8"
+    )
+    if not diff.stdout.strip():
+        print("\n  [push 건너뜀] 변경된 리포트 파일 없음")
+        return
+
+    # commit + push
+    msg = f"Update report: {region} {period_code}"
+    subprocess.run(
+        ["git", "commit", "-m", msg], cwd=repo_root,
+        capture_output=True, text=True, encoding="utf-8"
+    )
+    push_result = subprocess.run(
+        ["git", "push", "origin"], cwd=repo_root,
+        capture_output=True, text=True, encoding="utf-8"
+    )
+
+    if push_result.returncode == 0:
+        pages_url = f"https://hangil-kim.github.io/shucle-monitor/shucle_report/{region}/{period_code}/report_{region}_{period_code}.html"
+        print(f"\n  [GitHub push 완료] 1~2분 후 웹 링크에서 확인 가능:")
+        print(f"    {pages_url}")
+    else:
+        print(f"\n  [push 실패] {push_result.stderr.strip()}")
 
 
 def main():

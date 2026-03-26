@@ -52,6 +52,7 @@
 - `debug_datepicker.py` — 기간 선택 UI 디버그 스크립트
 - `monitoring_report.py` — KPI 분석 체계 기반 모니터링 보고서 생성 (수요→품질→공급→성장)
 - `export_report.py` — 보고서 파일 내보내기 (HTML/DOCX/XLSX 3종)
+- `batch_collect.py` — 다지역/다기간 배치 데이터 수집 + 리포트 자동 생성 스크립트
 - `shucle_auto_monitoring_overview.md` — 자동 데이터 수집 및 모니터링 리포트 기획 배경 문서
 - `shucle_auto_monitoring_overview.pdf` — 기획 배경 문서 PDF 산출물
 - `shucle_screenshot.py` — 인사이트 탭별 전체 페이지 스크린샷 캡처 스크립트
@@ -67,6 +68,32 @@
 
 ## Work Log
 <!-- 최신 작업이 위에 오도록 역순 기록 -->
+
+### 2026-03-26
+- 5개 지역 분기별 모니터링 리포트 생성 (분석: 2026.01.01~03.25, 비교: 2025.10.01~12.30)
+  - 대상 지역: 백운면, 봉양읍, 검단신도시, 충북혁신도시, 삼호
+  - 데이터 수집: 5지역 × 2기간 = 10건 전부 126/126 (100%) 달성
+  - 비교기간 가호출성공률/DAU 2개 KPI 누락 → 2025년 시점 대시보드에 해당 차트 미존재 (수집 문제 아님)
+  - 리포트 저장: `shucle_report/{지역}/20260101_20260325/report_{지역}_20260101_20260325.{html,xlsx}`
+- `batch_collect.py` 신규 생성: 다지역/다기간 배치 데이터 수집 스크립트
+  - 단일 브라우저 세션에서 여러 지역/기간 조합을 순차 수집
+  - 수집 완료 후 자동 HTML/XLSX 리포트 생성 (`generate_all_reports()`)
+  - 기존 데이터 삭제를 수집 완료 후로 이동하여 중단 시 데이터 유실 방지
+  - 지역 키워드 → display_name 매핑 (`REGION_MAP`)
+- `shucle_api_probe.py` 과거 연도 날짜 설정 기능 추가
+  - **근본 문제**: 시작일 year 세그먼트가 ArrowDown/digit 입력 모두 반응하지 않음 (2025년 설정 불가)
+  - **해결**: `Date.now()` JavaScript 오버라이드로 프리셋 "12주"가 과거 연도 시작일을 계산하도록 우회
+    - fake_today = target_start + 91일 → "12주" 클릭 시 시작 연도 2025 확보
+    - 프리셋 처리 후 Date.now() 즉시 복원
+  - 종료일 31일 설정 불가 문제: fake Date.now()로 인한 max day=30 제약
+    - Date.now() 복원 후에도 캐시된 max day 미갱신 → 종료일 12.30까지만 가능
+    - 12.31 설정 시 유효성 오류("시작일은 종료일 이전이어야 합니다") 발생 → 데이터 로딩 차단
+    - **최종 결정**: 12.30으로 수집 (92일 중 1일 = 1.1% 차이, 분석 영향 무시)
+  - `set_date_segment()` year 실패 시 4가지 대안 순차 시도 추가 (triple-click+입력, fill, JS, Ctrl+A)
+    - 결과: 4가지 모두 실패 → 시작 연도 세그먼트는 UI로 변경 불가 확정
+  - 최종 검증+보정 루프 추가: UI 표시 텍스트 기반 날짜 검증 (aria-valuenow와 표시 불일치 대응)
+- `batch_collect.py` 사이트 접속 타임아웃 개선
+  - networkidle 120초 → 실패 시 domcontentloaded 60초 폴백
 
 ### 2026-03-16
 - `shucle_screenshot.py` 신규 생성: 인사이트 탭별 전체 페이지 스크린샷 자동 캡처
