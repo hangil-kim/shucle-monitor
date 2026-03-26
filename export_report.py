@@ -22,7 +22,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from monitoring_report import (
-    load_charts, parse_dir_info, FRAMEWORK,
+    load_charts, parse_dir_info, FRAMEWORK, get_operating_days,
     get_kpi_value, get_drilldown_value, compute_change, dynamic_point,
     should_trigger, fmt_val, status_label, _is_negative_change, _resolve_dynamic_name,
 )
@@ -40,6 +40,10 @@ def build_report_data(data_dir, compare_dir=None):
     has_compare = prev_charts is not None and len(prev_charts) > 0
     _, prev_period = parse_dir_info(compare_dir) if compare_dir else ("", "")
 
+    # ── 운행일수 산출 ──
+    op_days = get_operating_days(charts)
+    prev_op_days = get_operating_days(prev_charts) if has_compare else None
+
     # 기간 코드 추출 (20260219_20260225)
     parts = os.path.normpath(data_dir).replace("\\", "/").split("/")
     period_code = ""
@@ -51,10 +55,10 @@ def build_report_data(data_dir, compare_dir=None):
     all_kpi_results = []
     for cat in FRAMEWORK:
         for kpi in cat["primary"]:
-            value, daily, chart = get_kpi_value(charts, kpi)
+            value, daily, chart = get_kpi_value(charts, kpi, op_days)
             prev_value, prev_daily = None, OrderedDict()
             if has_compare:
-                prev_value, prev_daily, _ = get_kpi_value(prev_charts, kpi)
+                prev_value, prev_daily, _ = get_kpi_value(prev_charts, kpi, prev_op_days)
             change = compute_change(value, prev_value)
             all_kpi_results.append({
                 "cat": cat, "kpi": kpi,
@@ -132,7 +136,7 @@ def build_report_data(data_dir, compare_dir=None):
             seen.add(dd["name"])
 
             dd_is_pct = dd.get("is_pct", False)
-            dd_stats, _ = get_drilldown_value(charts, dd)
+            dd_stats, _ = get_drilldown_value(charts, dd, op_days)
             curr_num = None
             if dd_stats and dd_stats["count"] > 0:
                 curr_num = dd_stats["avg"]
@@ -144,7 +148,7 @@ def build_report_data(data_dir, compare_dir=None):
 
             prev_num = None
             if has_compare and prev_charts:
-                dd_prev_stats, _ = get_drilldown_value(prev_charts, dd)
+                dd_prev_stats, _ = get_drilldown_value(prev_charts, dd, prev_op_days)
                 if dd_prev_stats and dd_prev_stats["count"] > 0:
                     prev_num = dd_prev_stats["avg"]
                     prev_dd_str = fmt_val(dd_prev_stats["avg"], is_pct=dd_is_pct)
@@ -224,7 +228,7 @@ def build_report_data(data_dir, compare_dir=None):
         })
 
     # ── 핵심 해석 ──
-    insights = _build_insights(all_kpi_results, charts, has_compare)
+    insights = _build_insights(all_kpi_results, charts, has_compare, op_days)
 
     return {
         "region": region,
@@ -241,7 +245,7 @@ def build_report_data(data_dir, compare_dir=None):
     }
 
 
-def _build_insights(all_kpi_results, charts, has_compare):
+def _build_insights(all_kpi_results, charts, has_compare, op_days=None):
     """핵심 해석 생성 (generate_report의 insights 로직 재사용)"""
     kpi_map = {r["kpi"]["name"]: r for r in all_kpi_results}
 
@@ -293,8 +297,8 @@ def _build_insights(all_kpi_results, charts, has_compare):
         rate = completed_v / calls_v * 100
         prev_calls = calls_r.get("prev_value")
         prev_completed = completed_r.get("prev_value")
-        cancel_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["일별", "실시간 호출 결과"]}, "col": "호출취소"})
-        fail_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["일별", "실시간 호출 결과"]}, "col": "배차실패"})
+        cancel_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["일별", "실시간 호출 결과"]}, "col": "호출취소"}, op_days)
+        fail_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["일별", "실시간 호출 결과"]}, "col": "배차실패"}, op_days)
         cancel_total = cancel_stats["total"] if cancel_stats else 0
         fail_total = fail_stats["total"] if fail_stats else 0
         if prev_calls and prev_completed and prev_calls > 0:
@@ -310,7 +314,7 @@ def _build_insights(all_kpi_results, charts, has_compare):
     wait_ch = wait_r.get("change")
     if wait_v is not None and wait_ch is not None and abs(wait_ch) >= 0.10:
         prev_wait = wait_r.get("prev_value")
-        top10_stats, top10_daily = get_drilldown_value(charts, {"name": "", "match": {"includes": ["상위10% 대기시간"]}})
+        top10_stats, top10_daily = get_drilldown_value(charts, {"name": "", "match": {"includes": ["상위10% 대기시간"]}}, op_days)
         top10_max = ""
         if top10_daily:
             t_max_day = max(top10_daily, key=top10_daily.get)
@@ -323,7 +327,7 @@ def _build_insights(all_kpi_results, charts, has_compare):
     sr_ch = success_r.get("change")
     if sr_v is not None and sr_ch is not None and abs(sr_ch) >= 0.10:
         prev_sr = success_r.get("prev_value")
-        vhcall_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}})
+        vhcall_stats, _ = get_drilldown_value(charts, {"name": "", "match": {"includes": ["가호출 수"], "excludes": ["순 회원", "성공", "결과", "성공률", "일별"]}}, op_days)
         vhcall_str = f", 가호출 시도 일평균 {fmt_val(vhcall_stats['avg'])}건" if vhcall_stats and vhcall_stats["count"] > 0 else ""
         insights.append(
             f"가호출 성공률 {'급락' if sr_ch < 0 else '상승'}: "
@@ -336,7 +340,7 @@ def _build_insights(all_kpi_results, charts, has_compare):
     dau_ch = dau_r.get("change")
     newmem_v = newmem_r.get("value")
     newmem_ch = newmem_r.get("change")
-    cumul_stats, cumul_daily = get_drilldown_value(charts, {"name": "", "match": {"includes": ["누적 지역 회원"], "excludes": ["일별"]}})
+    cumul_stats, cumul_daily = get_drilldown_value(charts, {"name": "", "match": {"includes": ["누적 지역 회원"], "excludes": ["일별"]}}, op_days)
     cumul_last = list(cumul_daily.values())[-1] if cumul_daily else None
     if (dau_ch is not None and abs(dau_ch) >= 0.10) or (newmem_ch is not None and abs(newmem_ch) >= 0.10):
         parts = []
