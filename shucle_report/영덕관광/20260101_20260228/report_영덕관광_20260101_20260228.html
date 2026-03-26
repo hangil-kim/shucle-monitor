@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>셔클 DRT 모니터링 보고서 - 영덕관광</title>
+<style>
+  body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; margin: 40px; color: #333; }
+  h1 { font-size: 20px; border-bottom: 3px solid #333; padding-bottom: 8px; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
+  h2 { font-size: 16px; margin-top: 32px; color: #1A3C7A; }
+  h3 { font-size: 14px; margin-top: 20px; color: #444; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px 0; font-size: 13px; table-layout: fixed; }
+  th { background: #F5F5F5; border: 1px solid #CCC; padding: 6px 10px; text-align: center; font-weight: bold; }
+  td { border: 1px solid #DDD; padding: 5px 10px; vertical-align: middle; }
+  td.num { text-align: right; }
+  td.center { text-align: center; }
+  .primary-table th:nth-child(1) { width: 9%; }
+  .primary-table th:nth-child(2) { width: 22%; }
+  .primary-table th:nth-child(3) { width: 14%; }
+  .primary-table th:nth-child(4) { width: 14%; }
+  .primary-table th:nth-child(5) { width: 14%; }
+  .primary-table th:nth-child(6) { width: 13%; }
+  .primary-table th:nth-child(7) { width: 14%; }
+  .dd-table th:nth-child(1) { width: 17.8%; }
+  .dd-table th:nth-child(2) { width: 21%; }
+  .dd-table th:nth-child(3) { width: 9.8%; }
+  .dd-table th:nth-child(4) { width: 9.8%; }
+  .dd-table th:nth-child(5) { width: 9.8%; }
+  .dd-table th:nth-child(6) { width: 9.8%; }
+  .dd-table th:nth-child(7) { width: 22%; }
+  .negative { color: #D32F2F; font-weight: bold; }
+  .positive { color: #1565C0; font-weight: bold; }
+  .cat-sep td { border-top: 2px solid #999; }
+  ul.insights { padding-left: 20px; }
+  ul.insights li { margin-bottom: 6px; line-height: 1.6; font-size: 13px; }
+  .section-divider { border: none; border-top: 1px solid #DDD; margin: 28px 0 8px 0; }
+  .footer { margin-top: 24px; font-size: 12px; color: #999; border-top: 1px solid #DDD; padding-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>셔클 DRT 모니터링 보고서</h1>
+<div class="meta">
+  지역: <b>영덕관광</b> | 분석기간: 2026.01.01 ~ 02.28
+  <br>
+  생성: 2026-03-26 13:46 | 차트: 116개 로드<br>
+  지표 분석 체계: 수요/품질/공급/성장별 1차 핵심지표와 이를 세분화한 2차 세부지표
+</div>
+
+<h2>1. 1차 핵심지표 요약</h2>
+<table class="primary-table">
+<tr><th>구분</th><th>지표</th><th>비교기간</th><th>분석기간</th><th>변동값</th><th>변동률</th><th>상태</th></tr>
+<tr>
+  <td class="center">수요</td>
+  <td>실시간 호출 건수(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">3.0건</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">수요</td>
+  <td>이동완료 호출 건수(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">2.6건</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">수요</td>
+  <td>총 탑승객 수(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">4.1명</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">수요</td>
+  <td>대당 탑승객 수(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">1.1명</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr class="cat-sep">
+  <td class="center">품질</td>
+  <td>평균 대기시간</td>
+  <td class="num">-</td>
+  <td class="num">5.4분</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">품질</td>
+  <td>평균 우회비율</td>
+  <td class="num">-</td>
+  <td class="num">1.1배</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">품질</td>
+  <td>평균 이동시간</td>
+  <td class="num">-</td>
+  <td class="num">23.0분</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr class="cat-sep">
+  <td class="center">공급</td>
+  <td>운행차량 대수</td>
+  <td class="num">-</td>
+  <td class="num">2.0대</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">공급</td>
+  <td>대당 운행시간(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">9.2시간</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">공급</td>
+  <td>가호출 성공률</td>
+  <td class="num">-</td>
+  <td class="num">6.7%</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">공급</td>
+  <td>대당 운행거리(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">231km</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">공급</td>
+  <td>평균 경로이탈비중</td>
+  <td class="num">-</td>
+  <td class="num">11.7%</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr class="cat-sep">
+  <td class="center">성장</td>
+  <td>DAU (일간 활성 회원)</td>
+  <td class="num">-</td>
+  <td class="num">1.7명</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+<tr>
+  <td class="center">성장</td>
+  <td>신규 지역 회원(일평균)</td>
+  <td class="num">-</td>
+  <td class="num">1.6명</td>
+  <td class="num">-</td>
+  <td class="num">-</td>
+  <td class="center ">-</td>
+</tr>
+</table>
+
+<hr class="section-divider">
+
+<hr class="section-divider">
+
+<h2>3. 핵심 해석</h2>
+<ul class="insights">
+  <li>호출당 평균 탑승객 1.5명: 동승 이용 활발</li>
+  <li>수요 현황: 일평균 호출 3.0건, 이동완료 2.6건, 탑승객 4.1명</li>
+  <li>대기시간 현황: 평균 5.4분</li>
+  <li>가호출 성공률 현황: 6.7%</li>
+</ul>
+
+<div class="footer">
+  ※ 변동 감지 기준: 비교기간 대비 ±10% | 분석 흐름: 수요→품질→공급→성장
+</div>
+</body>
+</html>
