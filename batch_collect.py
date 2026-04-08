@@ -25,9 +25,23 @@ from shucle_api_probe import (
 # 배치 수집 설정
 # ================================================================
 JOBS = [
-    # 테스트: 동면 분석+비교 2건으로 속도 비교
-    ("동면", ("2026-03-18", "2026-03-25")),
-    ("동면", ("2026-03-11", "2026-03-17")),
+    # 주간 모니터링: 분석 2026.03.30~04.05, 비교 2026.03.23~03.29
+    ("검단", ("2026-03-23", "2026-03-29")),
+    ("검단", ("2026-03-30", "2026-04-05")),
+    ("동면", ("2026-03-23", "2026-03-29")),
+    ("동면", ("2026-03-30", "2026-04-05")),
+    ("해안", ("2026-03-23", "2026-03-29")),
+    ("해안", ("2026-03-30", "2026-04-05")),
+    ("백운", ("2026-03-23", "2026-03-29")),
+    ("백운", ("2026-03-30", "2026-04-05")),
+    ("봉양", ("2026-03-23", "2026-03-29")),
+    ("봉양", ("2026-03-30", "2026-04-05")),
+    ("삼호", ("2026-03-23", "2026-03-29")),
+    ("삼호", ("2026-03-30", "2026-04-05")),
+    ("영덕", ("2026-03-23", "2026-03-29")),
+    ("영덕", ("2026-03-30", "2026-04-05")),
+    ("충북혁신", ("2026-03-23", "2026-03-29")),
+    ("충북혁신", ("2026-03-30", "2026-04-05")),
 ]
 
 # 지역 키워드 → 예상 display_name 매핑 (리포트 생성 시 사용)
@@ -37,6 +51,9 @@ REGION_MAP = {
     "검단": "검단신도시",
     "충북혁신": "충북혁신도시",
     "삼호": "삼호",
+    "동면": "동면",
+    "해안": "해안면",
+    "영덕": "영덕관광",
 }
 
 # ================================================================
@@ -44,15 +61,15 @@ REGION_MAP = {
 # ================================================================
 FAST = {
     "slow_mo": 50,           # 기존 300 → 50 (동작 간 지연)
-    "tab_init_wait": 3000,   # 기존 10000 → 3000 (탭 클릭 후 대기)
-    "scroll_wait": 500,      # 기존 1500 → 500 (스크롤 간 대기)
-    "scroll_top_wait": 1000, # 기존 2000 → 1000 (상단 복귀 대기)
-    "stable_secs": 4,        # 기존 8 → 4 (응답 안정화 판단)
-    "init_stable": 5,        # 기존 10 → 5 (초기 로딩 안정화)
-    "chart_timeout": 30,     # 기존 60 → 30 (차트 대기 최대)
-    "region_change_wait": 3000,  # 기존 5000 → 3000 (지역 변경 후)
-    "retry_wait": 300,       # 기존 500 → 300 (재수집 API 간)
-    "next_job_wait": 1000,   # 기존 3000 → 1000 (다음 작업 전)
+    "tab_init_wait": 5000,   # 탭 클릭 후 대기 (3000→5000, 차트 로딩 충분히)
+    "scroll_wait": 800,      # 스크롤 간 대기 (500→800, lazy-load 여유)
+    "scroll_top_wait": 1500, # 상단 복귀 대기 (1000→1500)
+    "stable_secs": 6,        # 응답 안정화 판단 (4→6초)
+    "init_stable": 8,        # 초기 로딩 안정화 (5→8초)
+    "chart_timeout": 45,     # 차트 대기 최대 (30→45초)
+    "region_change_wait": 5000,  # 지역 변경 후 (3000→5000)
+    "retry_wait": 500,       # 재수집 API 간 (300→500)
+    "next_job_wait": 2000,   # 다음 작업 전 (1000→2000)
 }
 
 
@@ -88,6 +105,19 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
     print(f"\n{'='*60}")
     print(f"[수집] 지역={region_keyword}, 기간={period}")
     print(f"{'='*60}")
+
+    # ── 모달/팝업 닫기 (이전 작업에서 열린 대화상자 차단 방지) ──
+    for _ in range(3):
+        try:
+            overlay = page.locator('div[data-slot="wrapper"][class*="fixed inset-0"]')
+            if await overlay.count() > 0:
+                print("[정리] 모달/오버레이 감지 — Escape로 닫기")
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(1000)
+            else:
+                break
+        except Exception:
+            break
 
     # ── 지역 선택 ──
     region_ok = False
@@ -160,6 +190,25 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
                 all_responses, tab_start_idx,
                 timeout=FAST["chart_timeout"], stable_secs=FAST["stable_secs"]
             )
+
+            # 차트 0건이면 추가 스크롤+재대기 (lazy-load 미트리거 대응)
+            if tab_charts == 0:
+                print(f"  [{i}/6] {tab_name}: 0개 — 추가 스크롤 재시도...")
+                await page.mouse.wheel(0, -5000)
+                await page.wait_for_timeout(3000)
+                for _ in range(7):
+                    await page.mouse.wheel(0, 800)
+                    await page.wait_for_timeout(1000)
+                await page.mouse.wheel(0, -5000)
+                await page.wait_for_timeout(2000)
+                for _ in range(7):
+                    await page.mouse.wheel(0, 800)
+                    await page.wait_for_timeout(1000)
+                tab_total, tab_charts = await wait_for_responses(
+                    all_responses, tab_start_idx,
+                    timeout=FAST["chart_timeout"], stable_secs=FAST["stable_secs"]
+                )
+
             print(f"  [{i}/6] {tab_name}: {tab_charts}개 차트")
 
         except Exception as e:
@@ -463,6 +512,14 @@ async def main():
             await page.wait_for_timeout(1000)
         except Exception:
             await page.wait_for_timeout(5000)
+
+        # 초기 모달/팝업 닫기
+        for _ in range(3):
+            try:
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(500)
+            except Exception:
+                break
 
         # 로그인 대기
         if "login" in page.url.lower() or "auth" in page.url.lower():
