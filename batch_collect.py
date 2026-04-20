@@ -25,23 +25,14 @@ from shucle_api_probe import (
 # 배치 수집 설정
 # ================================================================
 JOBS = [
-    # 주간 모니터링: 분석 2026.03.30~04.05, 비교 2026.03.23~03.29
-    ("검단", ("2026-03-23", "2026-03-29")),
-    ("검단", ("2026-03-30", "2026-04-05")),
-    ("동면", ("2026-03-23", "2026-03-29")),
-    ("동면", ("2026-03-30", "2026-04-05")),
-    ("해안", ("2026-03-23", "2026-03-29")),
-    ("해안", ("2026-03-30", "2026-04-05")),
-    ("백운", ("2026-03-23", "2026-03-29")),
-    ("백운", ("2026-03-30", "2026-04-05")),
-    ("봉양", ("2026-03-23", "2026-03-29")),
-    ("봉양", ("2026-03-30", "2026-04-05")),
-    ("삼호", ("2026-03-23", "2026-03-29")),
-    ("삼호", ("2026-03-30", "2026-04-05")),
-    ("영덕", ("2026-03-23", "2026-03-29")),
-    ("영덕", ("2026-03-30", "2026-04-05")),
-    ("충북혁신", ("2026-03-23", "2026-03-29")),
-    ("충북혁신", ("2026-03-30", "2026-04-05")),
+    # 재수집: 80% 미달 지역, 부족한 탭만 선택 (merge 모드)
+    ("동면",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질", "지역 회원", "정류장 이용", "차량 운행"]),
+    ("삼호",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질", "차량 운행"]),
+    ("봉양",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질"]),
+    ("백운",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질", "차량 운행"]),
+    ("해안",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질"]),
+    ("영덕",     ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질"]),
+    ("충북혁신", ("2026-04-13", "2026-04-19"), ["호출 탑승", "서비스 품질"]),
 ]
 
 # 지역 키워드 → 예상 display_name 매핑 (리포트 생성 시 사용)
@@ -72,6 +63,31 @@ FAST = {
     "next_job_wait": 2000,   # 다음 작업 전 (1000→2000)
 }
 
+REPORT_THRESHOLD = 80.0   # 리포트 생성 기준 수집률 (%)
+MAX_RETRY_ROUNDS = 5       # 최대 재시도 라운드 수
+
+# 80% 미달 시 재시도할 탭 목록 (지역명 기준)
+RETRY_TABS = {
+    "동면":         ["호출 탑승", "서비스 품질", "지역 회원", "정류장 이용", "차량 운행"],
+    "삼호":         ["호출 탑승", "서비스 품질", "차량 운행"],
+    "봉양읍":       ["호출 탑승", "서비스 품질"],
+    "백운면":       ["호출 탑승", "서비스 품질", "차량 운행"],
+    "해안면":       ["호출 탑승", "서비스 품질"],
+    "영덕관광":     ["호출 탑승", "서비스 품질"],
+    "충북혁신도시": ["호출 탑승", "서비스 품질"],
+}
+
+
+def get_true_rate(region_name, date_str, expected=128):
+    """_summary.json의 고유 slice_id 수로 실제 합산 수집률(%) 반환"""
+    sm = os.path.join(BASE_DATA_DIR, region_name, date_str, "_summary.json")
+    if not os.path.exists(sm):
+        return 0.0
+    with open(sm, "r", encoding="utf-8") as f:
+        s = json.load(f)
+    unique_sids = set(e["slice_id"] for e in s if e.get("slice_id"))
+    return len(unique_sids) / expected * 100
+
 
 async def wait_for_responses(all_responses, start_idx, timeout=30, stable_secs=4):
     """응답이 안정될 때까지 대기 (경량 버전)"""
@@ -99,8 +115,11 @@ async def wait_for_responses(all_responses, start_idx, timeout=30, stable_secs=4
     return total, chart_count
 
 
-async def collect_one(page, context, all_responses, response_errors, region_keyword, period):
-    """단일 지역/기간 데이터 수집 (고속 버전)"""
+async def collect_one(page, context, all_responses, response_errors, region_keyword, period, target_tabs=None):
+    """단일 지역/기간 데이터 수집 (고속 버전)
+    target_tabs: None이면 전체 탭 수집, 리스트면 해당 탭만 수집 (merge 모드)
+    """
+    merge_mode = target_tabs is not None
     job_start = time.time()
     print(f"\n{'='*60}")
     print(f"[수집] 지역={region_keyword}, 기간={period}")
@@ -142,7 +161,27 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
     # ── 기간 설정 ──
     await select_date_range(page, period)
 
-    # ── 이전 응답 제거 ──
+    # ── 호출 탑승 리로드 대응 ──
+    # 호출 탑승은 기본 탭이라 date 변경 시 이미 로딩 → clear로 유실
+    # 다른 탭으로 이동하여 호출 탑승 데이터를 언로드시킨 뒤, 나중에 돌아와서 수집
+    tabs_need_call = target_tabs is None or "호출 탑승" in target_tabs
+    if tabs_need_call:
+        try:
+            # 차량 운행(마지막 탭)으로 이동 → 호출 탑승 차트 완전 언로드
+            far_tab = page.get_by_text("차량 운행", exact=True).first
+            await far_tab.click()
+            await page.wait_for_timeout(3000)
+            # 스크롤로 차트 로딩 트리거 (기존 캐시 무효화)
+            for _ in range(3):
+                await page.mouse.wheel(0, 800)
+                await page.wait_for_timeout(500)
+            await page.mouse.wheel(0, -5000)
+            await page.wait_for_timeout(2000)
+            print("[초기] 호출 탑승 리로드 대응: 차량 운행 탭으로 이동 후 복귀 준비")
+        except Exception:
+            pass
+
+    # ── 이전 응답 정리 (clear 시점을 탭 이동 후로) ──
     old_count = len(all_responses)
     all_responses.clear()
     response_errors.clear()
@@ -165,10 +204,12 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
 
     await page.screenshot(path=os.path.join(save_dir, "00_region_confirm.png"))
 
-    # ── 탭 순회 (고속) ──
-    print(f"\n[탐색] 6개 탭 고속 순회")
+    # ── 수집 대상 탭 결정 ──
+    tabs_to_visit = target_tabs if target_tabs else TABS
+    print(f"\n[탐색] {len(tabs_to_visit)}개 탭 {'보충' if merge_mode else '고속'} 순회")
 
-    for i, tab_name in enumerate(TABS, 1):
+    total_tabs = len(tabs_to_visit)
+    for i, tab_name in enumerate(tabs_to_visit, 1):
         tab_start_idx = len(all_responses)
 
         try:
@@ -193,7 +234,7 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
 
             # 차트 0건이면 추가 스크롤+재대기 (lazy-load 미트리거 대응)
             if tab_charts == 0:
-                print(f"  [{i}/6] {tab_name}: 0개 — 추가 스크롤 재시도...")
+                print(f"  [{i}/{total_tabs}] {tab_name}: 0개 — 추가 스크롤 재시도...")
                 await page.mouse.wheel(0, -5000)
                 await page.wait_for_timeout(3000)
                 for _ in range(7):
@@ -209,10 +250,10 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
                     timeout=FAST["chart_timeout"], stable_secs=FAST["stable_secs"]
                 )
 
-            print(f"  [{i}/6] {tab_name}: {tab_charts}개 차트")
+            print(f"  [{i}/{total_tabs}] {tab_name}: {tab_charts}개 차트")
 
         except Exception as e:
-            print(f"  [{i}/6] {tab_name}: FAIL ({e})")
+            print(f"  [{i}/{total_tabs}] {tab_name}: FAIL ({e})")
 
     # ── slice_map 구축 ──
     slice_map = {}
@@ -345,20 +386,24 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
     print(f"   최종: {final_collected}/{final_expected} ({pct:.1f}%)")
 
     # ── 저장 ──
-    old_files = [f for f in os.listdir(save_dir)
-                 if f.endswith(".json") and not f.startswith("00")]
-    if old_files:
-        for f in old_files:
-            os.remove(os.path.join(save_dir, f))
+    if not merge_mode:
+        old_files = [f for f in os.listdir(save_dir)
+                     if f.endswith(".json") and not f.startswith("00")]
+        if old_files:
+            for f in old_files:
+                os.remove(os.path.join(save_dir, f))
+    else:
+        print(f"[merge] 기존 데이터 유지, 보충분만 추가")
 
     tab_summary = {}
     for r in all_responses:
         tab_summary.setdefault(r["tab"], []).append(r)
 
+    merge_prefix = "수집_" if not merge_mode else "보충_"
     for tab, responses in tab_summary.items():
         for j, r in enumerate(responses):
             if r["has_numeric_data"] and r["body_size"] > 100:
-                fname = f"{tab.replace(' ', '_')}_{j:02d}.json"
+                fname = f"{merge_prefix}{tab.replace(' ', '_')}_{j:02d}.json"
                 fpath = os.path.join(save_dir, fname)
                 slice_id = None
                 slice_name = None
@@ -409,7 +454,30 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
             pass
         summary.append(entry)
 
-    with open(os.path.join(save_dir, "_summary.json"), "w", encoding="utf-8") as f:
+    summary_path = os.path.join(save_dir, "_summary.json")
+    if merge_mode and os.path.exists(summary_path):
+        # 기존 summary에 보충분 병합
+        with open(summary_path, "r", encoding="utf-8") as f:
+            existing_summary = json.load(f)
+        # 기존 slice_id 목록
+        existing_sids = set()
+        for e in existing_summary:
+            if "slice_id" in e:
+                existing_sids.add(e["slice_id"])
+        # 새로 수집된 것 중 기존에 없는 것만 추가
+        added = 0
+        for s in summary:
+            sid = s.get("slice_id")
+            if sid and sid not in existing_sids:
+                existing_summary.append(s)
+                existing_sids.add(sid)
+                added += 1
+            elif not sid:
+                existing_summary.append(s)
+                added += 1
+        print(f"[merge] _summary.json: 기존 {len(existing_summary)-added}개 + 보충 {added}개")
+        summary = existing_summary
+    with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
     # zone 검증
@@ -431,7 +499,7 @@ async def collect_one(page, context, all_responses, response_errors, region_keyw
 
     elapsed = time.time() - job_start
     print(f"\n[완료] {region_name}/{date_str} — {final_collected}/{final_expected} ({pct:.0f}%), zone={zone_str}, {elapsed:.0f}초")
-    return save_dir, region_name, date_str
+    return save_dir, region_name, date_str, pct
 
 
 async def main():
@@ -442,8 +510,11 @@ async def main():
     print(f"[작업] {len(JOBS)}개 수집 작업")
     print("=" * 60)
 
-    for i, (kw, period) in enumerate(JOBS, 1):
-        print(f"  {i}. {kw} / {period}")
+    for i, job in enumerate(JOBS, 1):
+        kw, period = job[0], job[1]
+        tabs = job[2] if len(job) > 2 else None
+        tabs_str = f" [{', '.join(tabs)}]" if tabs else " [전체]"
+        print(f"  {i}. {kw} / {period}{tabs_str}")
 
     results = []
 
@@ -536,15 +607,18 @@ async def main():
             print("[로그인] 이미 로그인 상태")
 
         # 각 작업 순차 실행
-        for idx, (region_kw, period) in enumerate(JOBS, 1):
+        for idx, job in enumerate(JOBS, 1):
+            region_kw, period = job[0], job[1]
+            target_tabs = job[2] if len(job) > 2 else None
+            tabs_label = f" [{', '.join(target_tabs)}]" if target_tabs else ""
             print(f"\n{'#'*60}")
-            print(f"# 작업 {idx}/{len(JOBS)}: {region_kw} / {period}")
+            print(f"# 작업 {idx}/{len(JOBS)}: {region_kw} / {period}{tabs_label}")
             print(f"{'#'*60}")
 
             try:
-                save_dir, region_name, date_str = await collect_one(
+                save_dir, region_name, date_str, collect_pct = await collect_one(
                     page, context, all_responses, response_errors,
-                    region_kw, period
+                    region_kw, period, target_tabs=target_tabs
                 )
                 results.append({
                     "keyword": region_kw,
@@ -552,6 +626,7 @@ async def main():
                     "region_name": region_name,
                     "date_str": date_str,
                     "save_dir": save_dir,
+                    "collect_pct": collect_pct,
                     "status": "OK",
                 })
             except Exception as e:
@@ -564,6 +639,61 @@ async def main():
 
             await page.wait_for_timeout(FAST["next_job_wait"])
 
+        # ── 자동 재시도 루프 ──
+        for retry_round in range(1, MAX_RETRY_ROUNDS + 1):
+            # 실제 합산 수집률로 미달 지역 파악
+            failing = []
+            for r in results:
+                if r["status"] != "OK":
+                    continue
+                true_rate = get_true_rate(r["region_name"], r["date_str"])
+                r["collect_pct"] = true_rate  # 합산 수집률로 갱신
+                if true_rate < REPORT_THRESHOLD:
+                    failing.append(r)
+
+            if not failing:
+                print(f"\n[재시도] 모든 지역 {REPORT_THRESHOLD:.0f}% 이상 달성 — 재시도 종료")
+                break
+
+            print(f"\n{'='*60}")
+            print(f"[재시도 라운드 {retry_round}/{MAX_RETRY_ROUNDS}] {len(failing)}개 지역 미달")
+            for r in failing:
+                print(f"  {r['region_name']}: {r['collect_pct']:.1f}%")
+            print(f"{'='*60}")
+
+            # 재시도 전 수집률 스냅샷 (개선 여부 판단용)
+            prev_rates = {r["region_name"]: r["collect_pct"] for r in failing}
+
+            for idx, r in enumerate(failing, 1):
+                tabs = RETRY_TABS.get(r["region_name"])
+                tabs_label = f" [{', '.join(tabs)}]" if tabs else " [전체]"
+                print(f"\n{'#'*60}")
+                print(f"# 재시도 {retry_round}-{idx}/{len(failing)}: {r['keyword']} / {r['period']}{tabs_label}")
+                print(f"{'#'*60}")
+                try:
+                    save_dir, region_name, date_str, _ = await collect_one(
+                        page, context, all_responses, response_errors,
+                        r["keyword"], r["period"], target_tabs=tabs
+                    )
+                    r["collect_pct"] = get_true_rate(region_name, date_str)
+                except Exception as e:
+                    print(f"\n[오류] 재수집 실패: {e}")
+                await page.wait_for_timeout(FAST["next_job_wait"])
+
+            # 개선 없으면 중단 (1%p 이상 개선된 지역이 하나도 없을 때)
+            any_improvement = any(
+                get_true_rate(r["region_name"], r["date_str"]) > prev_rates[r["region_name"]] + 1
+                for r in failing
+            )
+            if not any_improvement:
+                print(f"\n[재시도] 라운드 {retry_round}: 개선 없음 — 재시도 중단")
+                break
+
+        # 최종 수집률 갱신
+        for r in results:
+            if r["status"] == "OK":
+                r["collect_pct"] = get_true_rate(r["region_name"], r["date_str"])
+
         # 결과 요약
         total_elapsed = time.time() - total_start
         print(f"\n\n{'='*60}")
@@ -571,7 +701,9 @@ async def main():
         print(f"{'='*60}")
         for r in results:
             if r["status"] == "OK":
-                print(f"  [OK] {r['region_name']}/{r['date_str']}")
+                pct_str = f"{r.get('collect_pct', 0):.1f}%"
+                flag = "OK" if r.get("collect_pct", 0) >= REPORT_THRESHOLD else "미달"
+                print(f"  [{flag}] {r['region_name']}/{r['date_str']}: {pct_str}")
             else:
                 print(f"  [FAIL] {r['keyword']}/{r['period']}: {r['status']}")
 
@@ -601,6 +733,20 @@ def generate_all_reports(results):
         print("  수집 성공 건이 없어 리포트 생성을 건너뜁니다.")
         return
 
+    # 수집률 필터링 (세션 수집률 아닌 summary 합산 기준)
+    for r in ok_results:
+        r["collect_pct"] = get_true_rate(r["region_name"], r["date_str"])
+    passed = [r for r in ok_results if r["collect_pct"] >= REPORT_THRESHOLD]
+    skipped = [r for r in ok_results if r["collect_pct"] < REPORT_THRESHOLD]
+    if skipped:
+        print(f"\n  [수집률 미달 — 리포트 생성 건너뜀]")
+        for r in skipped:
+            print(f"    {r['region_name']}/{r.get('date_str','')}: {r['collect_pct']:.1f}% (기준 {REPORT_THRESHOLD:.0f}%)")
+    ok_results = passed
+    if not ok_results:
+        print("  80% 이상 달성한 지역이 없어 리포트 생성을 건너뜁니다.")
+        return
+
     # 지역별로 분석기간/비교기간 분류 (날짜 순으로 최신=분석, 이전=비교)
     region_data = {}
     for r in ok_results:
@@ -612,8 +758,35 @@ def generate_all_reports(results):
     report_results = []
     for region_name, region_results in region_data.items():
         if len(region_results) < 2:
-            print(f"\n  [{region_name}] 기간 1개만 수집됨 — 리포트 건너뜀")
-            continue
+            # 기존 데이터에서 비교기간 자동 탐색
+            analysis = region_results[0]
+            region_dir = os.path.join(BASE_DATA_DIR, region_name)
+            if os.path.isdir(region_dir):
+                existing = sorted([
+                    d for d in os.listdir(region_dir)
+                    if os.path.isdir(os.path.join(region_dir, d))
+                    and re.match(r"\d{8}_\d{8}$", d)
+                    and d != os.path.basename(analysis["save_dir"])
+                ])
+                # 분석기간보다 이전인 것 중 가장 최근
+                analysis_date = os.path.basename(analysis["save_dir"])
+                candidates = [d for d in existing if d < analysis_date]
+                if candidates:
+                    compare_date = candidates[-1]
+                    compare_path = os.path.join(region_dir, compare_date)
+                    region_results.insert(0, {
+                        "region_name": region_name,
+                        "save_dir": compare_path,
+                        "date_str": compare_date,
+                        "status": "OK",
+                    })
+                    print(f"\n  [{region_name}] 기존 비교기간 데이터 활용: {compare_date}")
+                else:
+                    print(f"\n  [{region_name}] 비교기간 데이터 없음 — 리포트 건너뜀")
+                    continue
+            else:
+                print(f"\n  [{region_name}] 기간 1개만 수집됨 — 리포트 건너뜀")
+                continue
 
         # 날짜 순 정렬 (save_dir의 날짜 기준)
         region_results.sort(key=lambda x: x.get("date_str", ""))
